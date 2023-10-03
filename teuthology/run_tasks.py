@@ -21,11 +21,7 @@ log = logging.getLogger(__name__)
 
 def get_task(name):
     # todo: support of submodules
-    if '.' in name:
-        module_name, task_name = name.split('.')
-    else:
-        module_name, task_name = (name, 'task')
-
+    module_name, task_name = name.split('.') if '.' in name else (name, 'task')
     # First look for the tasks's module inside teuthology
     module = _import('teuthology.task', module_name, task_name)
     # If it is not found, try qa/ directory (if it is in sys.path)
@@ -38,10 +34,7 @@ def get_task(name):
         if isinstance(task, types.ModuleType):
             task = getattr(task, task_name)
     except AttributeError:
-        log.error("No subtask of '{}' named '{}' was found".format(
-            module_name,
-            task_name,
-        ))
+        log.error(f"No subtask of '{module_name}' named '{task_name}' was found")
         raise
     return task
 
@@ -71,8 +64,7 @@ def run_one_task(taskname, **kwargs):
 
 
 def run_tasks(tasks, ctx):
-    archive_path = ctx.config.get('archive_path')
-    if archive_path:
+    if archive_path := ctx.config.get('archive_path'):
         timer = Timer(
             path=os.path.join(archive_path, 'timing.yaml'),
             sync=True,
@@ -85,9 +77,9 @@ def run_tasks(tasks, ctx):
             try:
                 ((taskname, config),) = taskdict.items()
             except (ValueError, AttributeError):
-                raise RuntimeError('Invalid task definition: %s' % taskdict)
+                raise RuntimeError(f'Invalid task definition: {taskdict}')
             log.info('Running task %s...', taskname)
-            timer.mark('%s enter' % taskname)
+            timer.mark(f'{taskname} enter')
             manager = run_one_task(taskname, ctx=ctx, config=config)
             if hasattr(manager, '__enter__'):
                 stack.append((taskname, manager))
@@ -96,10 +88,8 @@ def run_tasks(tasks, ctx):
         if isinstance(e, ConnectionLostError):
             # Prevent connection issues being flagged as failures
             set_status(ctx.summary, 'dead')
-        else:
-            # the status may have been set to dead, leave it as-is if so
-            if not ctx.summary.get('status', '') == 'dead':
-                set_status(ctx.summary, 'fail')
+        elif ctx.summary.get('status', '') != 'dead':
+            set_status(ctx.summary, 'fail')
         if 'failure_reason' not in ctx.summary:
             ctx.summary['failure_reason'] = str(e)
         log.exception('Saw exception from tasks.')
@@ -140,7 +130,7 @@ def run_tasks(tasks, ctx):
             )
             event_url = "{server}/?query={id}".format(
                 server=teuth_config.sentry_server.strip('/'), id=exc_id)
-            log.exception(" Sentry event: %s" % event_url)
+            log.exception(f" Sentry event: {event_url}")
             ctx.summary['sentry_event'] = event_url
 
         if ctx.config.get('interactive-on-error'):
@@ -160,18 +150,18 @@ def run_tasks(tasks, ctx):
     finally:
         try:
             exc_info = sys.exc_info()
-            sleep_before_teardown = ctx.config.get('sleep_before_teardown')
-            if sleep_before_teardown:
+            if sleep_before_teardown := ctx.config.get(
+                'sleep_before_teardown'
+            ):
                 log.info(
-                    'Sleeping for {} seconds before unwinding because'
-                    ' --sleep-before-teardown was given...'
-                    .format(sleep_before_teardown))
+                    f'Sleeping for {sleep_before_teardown} seconds before unwinding because --sleep-before-teardown was given...'
+                )
                 notify_sleep_before_teardown(ctx, stack, sleep_before_teardown)
                 time.sleep(sleep_before_teardown)
             while stack:
                 taskname, manager = stack.pop()
                 log.debug('Unwinding manager %s', taskname)
-                timer.mark('%s exit' % taskname)
+                timer.mark(f'{taskname} exit')
                 try:
                     suppress = manager.__exit__(*exc_info)
                 except Exception as e:
@@ -209,8 +199,10 @@ def run_tasks(tasks, ctx):
 
 
 def build_rocketchat_message(ctx, stack, sleep_time_sec, template_path=None):
-    message_template_path = template_path or os.path.dirname(__file__) + \
-            '/templates/rocketchat-sleep-before-teardown.jinja2'
+    message_template_path = (
+        template_path
+        or f'{os.path.dirname(__file__)}/templates/rocketchat-sleep-before-teardown.jinja2'
+    )
 
     with open(message_template_path) as f:
         template_text = f.read()
@@ -225,7 +217,7 @@ def build_rocketchat_message(ctx, stack, sleep_time_sec, template_path=None):
     sleep_date_str=time.strftime('%Y-%m-%d %H:%M:%S',
                                  time.gmtime(sleep_date))
 
-    message = template.render(
+    return template.render(
         sleep_time=format_timespan(sleep_time_sec),
         sleep_time_sec=sleep_time_sec,
         sleep_date=sleep_date_str,
@@ -239,7 +231,6 @@ def build_rocketchat_message(ctx, stack, sleep_time_sec, template_path=None):
         status=status,
         task_stack=stack_path,
     )
-    return message
 
 
 def build_email_body(ctx, stack, sleep_time_sec):
@@ -321,9 +312,7 @@ def rocketchat_send_message(ctx, message, channels):
 
 
 def notify_sleep_before_teardown(ctx, stack, sleep_time):
-    rocketchat = ctx.config.get('rocketchat', None)
-
-    if rocketchat:
+    if rocketchat := ctx.config.get('rocketchat', None):
         channels = [_ for _ in [_.strip() for _ in rocketchat.split(',')] if _]
         log.info("Sending a message to Rocket.Chat channels: %s", channels)
         message = build_rocketchat_message(ctx, stack, sleep_time)

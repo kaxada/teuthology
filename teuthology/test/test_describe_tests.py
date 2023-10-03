@@ -130,8 +130,8 @@ expected_rbd_features = [
 class TestDescribeTests(object):
 
     def setup(self):
-        self.mocks = dict()
-        self.patchers = dict()
+        self.mocks = {}
+        self.patchers = {}
         exists, listdir, isfile, isdir, open = make_fake_fstools(realistic_fs)
         for ppoint, fn in {
              'os.listdir': listdir,

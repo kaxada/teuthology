@@ -29,10 +29,7 @@ def update_nodes(nodes, reset_os=False):
             canonicalize_hostname(node))
         if reset_os:
             log.info("Updating [%s]: reset os type and version on server", node)
-            inventory_info = dict()
-            inventory_info['os_type'] = ''
-            inventory_info['os_version'] = ''
-            inventory_info['name'] = remote.hostname
+            inventory_info = {'os_type': '', 'os_version': '', 'name': remote.hostname}
         else:
             log.info("Updating [%s]: set os type and version on server", node)
             inventory_info = remote.inventory_info
@@ -116,7 +113,7 @@ def lock_many(ctx, num, machine_type, user=None, description=None,
             headers={'content-type': 'application/json'},
         )
         if response.ok:
-            machines = dict()
+            machines = {}
             for machine in response.json():
                 key = misc.canonicalize_hostname(
                     machine['name'],
@@ -204,8 +201,7 @@ def unlock_one(ctx, name, user, description=None):
     request = dict(name=name, locked=False, locked_by=user,
                    description=description)
     uri = os.path.join(config.lock_server, 'nodes', name, 'lock', '')
-    with safe_while(
-            sleep=1, increment=0.5, action="unlock %s" % name) as proceed:
+    with safe_while(sleep=1, increment=0.5, action=f"unlock {name}") as proceed:
         while proceed():
             try:
                 response = requests.put(uri, json.dumps(request))
@@ -307,7 +303,7 @@ def reimage_machines(ctx, machines, machine_type):
         log.info(f"Skipping reimage of {machines.keys()} because {machine_type} is not in {reimage_types}")
         return machines
     # Setup log file, reimage machines and update their keys
-    reimaged = dict()
+    reimaged = {}
     console_log_conf = dict(
         logfile_name='{shortname}_reimage.log',
         remotes=[teuthology.orchestra.remote.Remote(machine)
@@ -343,20 +339,19 @@ def block_and_lock_machines(ctx, total_requested, machine_type, reimage=True):
     # change the status during the locking process
     report.try_push_job_info(ctx.config, dict(status='waiting'))
 
-    all_locked = dict()
+    all_locked = {}
     requested = total_requested
     while True:
         # get a candidate list of machines
         machines = query.list_locks(machine_type=machine_type, up=True,
                                     locked=False, count=requested + reserved)
         if machines is None:
-            if ctx.block:
-                log.error('Error listing machines, trying again')
-                time.sleep(20)
-                continue
-            else:
+            if not ctx.block:
                 raise RuntimeError('Error listing machines')
 
+            log.error('Error listing machines, trying again')
+            time.sleep(20)
+            continue
         # make sure there are machines for non-automated jobs to run
         if len(machines) < reserved + requested \
                 and ctx.owner.startswith('scheduled'):
@@ -371,8 +366,9 @@ def block_and_lock_machines(ctx, total_requested, machine_type, reimage=True):
                 time.sleep(10)
                 continue
             else:
-                assert 0, ('not enough machines free; need %s + %s, have %s' %
-                           (reserved, requested, len(machines)))
+                assert (
+                    0
+                ), f'not enough machines free; need {reserved} + {requested}, have {len(machines)}'
 
         try:
             newly_locked = lock_many(ctx, requested, machine_type,
@@ -394,13 +390,13 @@ def block_and_lock_machines(ctx, total_requested, machine_type, reimage=True):
             )
         )
         if len(all_locked) == total_requested:
-            vmlist = []
-            for lmach in all_locked:
-                if teuthology.lock.query.is_vm(lmach):
-                    vmlist.append(lmach)
-            if vmlist:
+            if vmlist := [
+                lmach
+                for lmach in all_locked
+                if teuthology.lock.query.is_vm(lmach)
+            ]:
                 log.info('Waiting for virtual machines to come up')
-                keys_dict = dict()
+                keys_dict = {}
                 loopcount = 0
                 while len(keys_dict) != len(vmlist):
                     loopcount += 1
@@ -413,14 +409,14 @@ def block_and_lock_machines(ctx, total_requested, machine_type, reimage=True):
                                  'recreating unresponsive ones.')
                         for guest in vmlist:
                             if guest not in keys_dict.keys():
-                                log.info('recreating: ' + guest)
+                                log.info(f'recreating: {guest}')
                                 full_name = misc.canonicalize_hostname(guest)
                                 teuthology.provision.destroy_if_vm(ctx, full_name)
                                 teuthology.provision.create_if_vm(ctx, full_name)
                 if teuthology.lock.ops.do_update_keys(keys_dict)[0]:
                     log.info("Error in virtual machine keys")
                 newscandict = {}
-                for dkey in all_locked.keys():
+                for dkey in all_locked:
                     stats = teuthology.lock.query.get_status(dkey)
                     newscandict[dkey] = stats['ssh_pub_key']
                 ctx.config['targets'] = newscandict

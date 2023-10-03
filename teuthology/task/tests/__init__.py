@@ -34,7 +34,7 @@ class TeuthologyContextPlugin(object):
     def __init__(self, ctx, config):
         self.ctx = ctx
         self.config = config
-        self.failures = list()
+        self.failures = []
 
     # this is pytest hook for generating tests with custom parameters
     def pytest_generate_tests(self, metafunc):

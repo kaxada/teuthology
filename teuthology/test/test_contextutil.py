@@ -64,5 +64,3 @@ class TestSafeWhile(object):
         with self.s_while(_raise=False, _sleeper=self.fake_sleep) as proceed:
             while proceed():
                 pass
-
-        assert True

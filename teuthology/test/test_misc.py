@@ -30,8 +30,7 @@ def test_sh_fail(caplog):
     assert excinfo.value.returncode == 111
     for record in caplog.records:
         if record.levelname == 'ERROR':
-            assert ('replay full' in record.message or
-                    'ABC\n' == record.message)
+            assert 'replay full' in record.message or record.message == 'ABC\n'
 
 def test_sh_progress(caplog):
     misc.sh("echo AB ; sleep 5 ; /bin/echo C", 2) == "ABC\n"
@@ -50,7 +49,7 @@ def test_sh_progress(caplog):
 def test_wait_until_osds_up():
     ctx = argparse.Namespace()
     ctx.daemons = Mock()
-    ctx.daemons.iter_daemons_of_role.return_value = list()
+    ctx.daemons.iter_daemons_of_role.return_value = []
     remote = FakeRemote()
 
     def s(self, **kwargs):
@@ -97,7 +96,7 @@ def test_get_mon_names():
     for remote_roles, cluster_name, expected_mons in expected:
         ctx = argparse.Namespace()
         ctx.cluster = Mock()
-        ctx.cluster.remotes = {i: roles for i, roles in enumerate(remote_roles)}
+        ctx.cluster.remotes = dict(enumerate(remote_roles))
         mons = misc.get_mon_names(ctx, cluster_name)
         assert expected_mons == mons
 
@@ -113,7 +112,7 @@ def test_get_first_mon():
     for remote_roles, cluster_name, expected_mon in expected:
         ctx = argparse.Namespace()
         ctx.cluster = Mock()
-        ctx.cluster.remotes = {i: roles for i, roles in enumerate(remote_roles)}
+        ctx.cluster.remotes = dict(enumerate(remote_roles))
         mon = misc.get_first_mon(ctx, None, cluster_name)
         assert expected_mon == mon
 
@@ -233,9 +232,11 @@ def test_get_mons():
                     'ceph.mon.c': addrs[2]}
 
     mons = misc.get_mons([['mon.a'], ['mon.b'], ['ceph.mon.c']], ips)
-    assert mons == {'mon.a': addrs[0],
-                    'mon.b': ips[1] + ':6789',
-                    'ceph.mon.c': ips[2] + ':6789'}
+    assert mons == {
+        'mon.a': addrs[0],
+        'mon.b': f'{ips[1]}:6789',
+        'ceph.mon.c': f'{ips[2]}:6789',
+    }
 
 
 def test_split_role():
@@ -252,7 +253,7 @@ def test_split_role():
 
 class TestHostnames(object):
     def setup(self):
-        config._conf = dict()
+        config._conf = {}
 
     def teardown(self):
         config.load()
@@ -293,7 +294,7 @@ class TestHostnames(object):
         config.lab_domain = ''
         host = 'box2'
         result = misc.canonicalize_hostname(host)
-        assert result == 'ubuntu@' + host
+        assert result == f'ubuntu@{host}'
 
     def test_decanonicalize_hostname_nodomain(self):
         config.lab_domain = ''

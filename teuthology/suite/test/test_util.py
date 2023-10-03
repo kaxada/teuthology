@@ -40,7 +40,8 @@ def git_repository(request):
     """.format(d=d))
 
     def fin():
-        os.system("rm -fr " + d)
+        os.system(f"rm -fr {d}")
+
     request.addfinalizer(fin)
     return d
 
@@ -114,19 +115,19 @@ class TestUtil(object):
             self,
             m_get_ceph_qa_suite_git_url):
         url = 'http://foo.com/some'
-        m_get_ceph_qa_suite_git_url.return_value = url + '.git'
+        m_get_ceph_qa_suite_git_url.return_value = f'{url}.git'
         assert url == util.build_git_url('ceph-qa-suite')
 
     @patch('teuthology.config.TeuthologyConfig.get_ceph_git_url')
     def test_build_git_url_ceph_custom(self, m_get_ceph_git_url):
         url = 'http://foo.com/some'
-        m_get_ceph_git_url.return_value = url + '.git'
+        m_get_ceph_git_url.return_value = f'{url}.git'
         assert url == util.build_git_url('ceph')
 
     @patch('teuthology.config.TeuthologyConfig.get_ceph_cm_ansible_git_url')
     def test_build_git_url_ceph_cm_ansible_custom(self, m_get_ceph_cm_ansible_git_url):
         url = 'http://foo.com/some'
-        m_get_ceph_cm_ansible_git_url.return_value = url + '.git'
+        m_get_ceph_cm_ansible_git_url.return_value = f'{url}.git'
         assert url == util.build_git_url('ceph-cm-ansible')
 
     @patch('teuthology.config.TeuthologyConfig.get_ceph_git_url')
@@ -149,13 +150,7 @@ class TestUtil(object):
 class TestFlavor(object):
 
     def test_get_install_task_flavor_bare(self):
-        config = dict(
-            tasks=[
-                dict(
-                    install=dict(),
-                ),
-            ],
-        )
+        config = dict(tasks=[dict(install={})])
         assert util.get_install_task_flavor(config) == 'default'
 
     def test_get_install_task_flavor_simple(self):
@@ -172,9 +167,7 @@ class TestFlavor(object):
 
     def test_get_install_task_flavor_override_simple(self):
         config = dict(
-            tasks=[
-                dict(install=dict()),
-            ],
+            tasks=[dict(install={})],
             overrides=dict(
                 install=dict(
                     flavor='notcmalloc',
@@ -185,9 +178,7 @@ class TestFlavor(object):
 
     def test_get_install_task_flavor_override_project(self):
         config = dict(
-            tasks=[
-                dict(install=dict()),
-            ],
+            tasks=[dict(install={})],
             overrides=dict(
                 install=dict(
                     ceph=dict(

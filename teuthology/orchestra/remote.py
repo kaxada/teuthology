@@ -52,9 +52,9 @@ class RemoteShell(object):
         args = ['mktemp', '-d']
 
         if suffix:
-            args.append('--suffix=%s' % suffix)
+            args.append(f'--suffix={suffix}')
         if parentdir:
-            args.append('--tmpdir=%s' % parentdir)
+            args.append(f'--tmpdir={parentdir}')
 
         return self.sh(args).strip()
 
@@ -70,9 +70,9 @@ class RemoteShell(object):
         """
         args = ['mktemp']
         if suffix:
-            args.append('--suffix=%s' % suffix)
+            args.append(f'--suffix={suffix}')
         if parentdir:
-            args.append('--tmpdir=%s' % parentdir)
+            args.append(f'--tmpdir={parentdir}')
 
         path = self.sh(args).strip()
 
@@ -95,10 +95,7 @@ class RemoteShell(object):
             kwargs['args'] = script
         proc = self.run(**kwargs)
         out = proc.stdout.getvalue()
-        if isinstance(out, bytes):
-            return out.decode()
-        else:
-            return out
+        return out.decode() if isinstance(out, bytes) else out
 
     def sh_file(self, script, label="script", sudo=False, **kwargs):
         """
@@ -110,18 +107,17 @@ class RemoteShell(object):
         :param label:   string value which will be part of file name
         Returns: stdout
         """
-        ftempl = '/tmp/teuthology-remote-$(date +%Y%m%d%H%M%S)-{}-XXXX'\
-                 .format(label)
-        script_file = self.sh("mktemp %s" % ftempl).strip()
+        ftempl = f'/tmp/teuthology-remote-$(date +%Y%m%d%H%M%S)-{label}-XXXX'
+        script_file = self.sh(f"mktemp {ftempl}").strip()
         self.sh("cat - | tee {script} ; chmod a+rx {script}"\
-            .format(script=script_file), stdin=script)
+                .format(script=script_file), stdin=script)
         if sudo:
             if isinstance(sudo, str):
-                command="sudo -u %s %s" % (sudo, script_file)
+                command = f"sudo -u {sudo} {script_file}"
             else:
-                command="sudo %s" % script_file
+                command = f"sudo {script_file}"
         else:
-            command="%s" % script_file
+            command = f"{script_file}"
 
         return self.sh(command, **kwargs)
 
@@ -172,14 +168,13 @@ class RemoteShell(object):
         :param append:  append data to the file, defaults False
         """
         dd = 'sudo dd' if sudo else 'dd'
-        args = dd + ' if=' + src + ' of=' + dst
+        args = f'{dd} if={src} of={dst}'
         if append:
             args += ' conv=notrunc oflag=append'
         if mkdir:
             mkdirp = 'sudo mkdir -p' if sudo else 'mkdir -p'
-            dirpath = os.path.dirname(dst)
-            if dirpath:
-                args = mkdirp + ' ' + dirpath + '\n' + args
+            if dirpath := os.path.dirname(dst):
+                args = f'{mkdirp} {dirpath}' + '\n' + args
         if mode:
             chmod = 'sudo chmod' if sudo else 'chmod'
             args += '\n' + chmod + ' ' + mode + ' ' + dst
@@ -203,18 +198,17 @@ class RemoteShell(object):
                         False
         """
         mv = 'sudo mv' if sudo else 'mv'
-        args = mv + ' ' + src + ' ' + dst
+        args = f'{mv} {src} {dst}'
         if mkdir:
             mkdirp = 'sudo mkdir -p' if sudo else 'mkdir -p'
-            dirpath = os.path.dirname(dst)
-            if dirpath:
-                args = mkdirp + ' ' + dirpath + '\n' + args
+            if dirpath := os.path.dirname(dst):
+                args = f'{mkdirp} {dirpath}' + '\n' + args
         if mode:
             chmod = 'sudo chmod' if sudo else 'chmod'
-            args += ' && ' + chmod + ' ' + mode + ' ' + dst
+            args += f' && {chmod} {mode} {dst}'
         if owner:
             chown = 'sudo chown' if sudo else 'chown'
-            args += ' && ' + chown + ' ' + owner + ' ' + dst
+            args += f' && {chown} {owner} {dst}'
         self.run(args=args)
 
     def read_file(self, path, sudo=False, stdout=None,
@@ -236,16 +230,16 @@ class RemoteShell(object):
         :returns: the file contents in str, if stdout is `io.StringIO`
         """
         dd = 'sudo dd' if sudo else 'dd'
-        args = dd + ' if=' + path + ' of=/dev/stdout'
+        args = f'{dd} if={path} of=/dev/stdout'
         iflags=[]
         # we have to set defaults here instead of the method's signature,
         # because python is reusing the object from call to call
         stdout = stdout or BytesIO()
         if offset:
-            args += ' skip=' + str(offset)
+            args += f' skip={str(offset)}'
             iflags += 'skip_bytes'
         if length:
-            args += ' count=' + str(length)
+            args += f' count={str(length)}'
             iflags += 'count_bytes'
         if iflags:
             args += ' iflag=' + ','.join(iflags)
@@ -277,14 +271,13 @@ class RemoteShell(object):
         :param append:  append data to the file, defaults False
         """
         dd = 'sudo dd' if sudo else 'dd'
-        args = dd + ' of=' + path
+        args = f'{dd} of={path}'
         if append:
             args += ' conv=notrunc oflag=append'
         if mkdir:
             mkdirp = 'sudo mkdir -p' if sudo else 'mkdir -p'
-            dirpath = os.path.dirname(path)
-            if dirpath:
-                args = mkdirp + ' ' + dirpath + '\n' + args
+            if dirpath := os.path.dirname(path):
+                args = f'{mkdirp} {dirpath}' + '\n' + args
         if mode:
             chmod = 'sudo chmod' if sudo else 'chmod'
             args += '\n' + chmod + ' ' + mode + ' ' + path
@@ -426,7 +419,7 @@ class Remote(RemoteShell):
 
     def _set_iface_and_cidr(self):
         ip_addr_show = self.sh('PATH=/sbin:/usr/sbin ip addr show')
-        regexp = 'inet.? %s' % self.ip_address
+        regexp = f'inet.? {self.ip_address}'
         for line in ip_addr_show.split('\n'):
             line = line.strip()
             if re.match(regexp, line):
@@ -445,10 +438,10 @@ class Remote(RemoteShell):
     @property
     def machine_type(self):
         if not getattr(self, '_machine_type', None):
-            remote_info = teuthology.lock.query.get_status(self.hostname)
-            if not remote_info:
+            if remote_info := teuthology.lock.query.get_status(self.hostname):
+                self._machine_type = remote_info.get("machine_type", None)
+            else:
                 return None
-            self._machine_type = remote_info.get("machine_type", None)
         return self._machine_type
 
     @property
@@ -525,7 +518,7 @@ class Remote(RemoteShell):
         file_size = self._format_size(
             self._sftp_get_size(remote_path)
         ).strip()
-        log.debug("{}:{} is {}".format(self.shortname, remote_path, file_size))
+        log.debug(f"{self.shortname}:{remote_path} is {file_size}")
         sftp = self.ssh.open_sftp()
         sftp.get(remote_path, local_path)
         return local_path
@@ -657,12 +650,13 @@ class Remote(RemoteShell):
 
     @property
     def inventory_info(self):
-        node = dict()
-        node['name'] = self.hostname
-        node['user'] = self.user
-        node['arch'] = self.arch
-        node['os_type'] = self.os.name
-        node['os_version'] = '.'.join(self.os.version.split('.')[:2])
+        node = {
+            'name': self.hostname,
+            'user': self.user,
+            'arch': self.arch,
+            'os_type': self.os.name,
+            'os_version': '.'.join(self.os.version.split('.')[:2]),
+        }
         node['ssh_pub_key'] = self.host_key
         node['up'] = True
         return node

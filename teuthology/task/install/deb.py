@@ -19,14 +19,12 @@ def _retry_if_eagain_in_output(remote, args):
             try:
                 return remote.run(args=args, stderr=stderr)
             except run.CommandFailedError:
-                if "could not get lock" in stderr.getvalue().lower():
-                    stdout = StringIO()
-                    args = ['sudo', 'fuser', '-v', '/var/lib/dpkg/lock-frontend']
-                    remote.run(args=args, stdout=stdout)
-                    log.info("The processes holding 'lock-frontend':\n{}".format(stdout.getvalue()))
-                    continue
-                else:
+                if "could not get lock" not in stderr.getvalue().lower():
                     raise
+                stdout = StringIO()
+                args = ['sudo', 'fuser', '-v', '/var/lib/dpkg/lock-frontend']
+                remote.run(args=args, stdout=stdout)
+                log.info(f"The processes holding 'lock-frontend':\n{stdout.getvalue()}")
 
 def install_dep_packages(remote, args):
     _retry_if_eagain_in_output(remote, args)
@@ -91,17 +89,16 @@ def _update_package_list_and_install(ctx, remote, debs, config):
                 'Dpkg::Options::="--force-confold"'),
             'install',
         ]
-    install_dep_packages(remote,
-        args=install_cmd + ['%s=%s' % (d, version) for d in debs],
+    install_dep_packages(
+        remote, args=install_cmd + [f'{d}={version}' for d in debs]
     )
     if system_pkglist:
         install_dep_packages(remote,
             args=install_cmd + system_pkglist,
         )
-    ldir = _get_local_dir(config, remote)
-    if ldir:
+    if ldir := _get_local_dir(config, remote):
         for fyle in os.listdir(ldir):
-            fname = "%s/%s" % (ldir, fyle)
+            fname = f"{ldir}/{fyle}"
             remote.run(args=['sudo', 'dpkg', '-i', fname],)
 
 
@@ -215,12 +212,21 @@ def _upgrade_packages(ctx, config, remote, debs):
     builder.install_repo()
 
     remote.run(args=['sudo', 'apt-get', 'update'], check_status=False)
-    install_dep_packages(remote,
-        args=[
-            'sudo',
-            'DEBIAN_FRONTEND=noninteractive', 'apt-get', '-y', '--force-yes',
-            '-o', run.Raw('Dpkg::Options::="--force-confdef"'), '-o', run.Raw(
-                'Dpkg::Options::="--force-confold"'),
-            'install',
-        ] + ['%s=%s' % (d, version) for d in debs],
+    install_dep_packages(
+        remote,
+        args=(
+            [
+                'sudo',
+                'DEBIAN_FRONTEND=noninteractive',
+                'apt-get',
+                '-y',
+                '--force-yes',
+                '-o',
+                run.Raw('Dpkg::Options::="--force-confdef"'),
+                '-o',
+                run.Raw('Dpkg::Options::="--force-confold"'),
+                'install',
+            ]
+            + [f'{d}={version}' for d in debs]
+        ),
     )

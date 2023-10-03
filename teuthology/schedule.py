@@ -17,17 +17,13 @@ def main(args):
 
     if not args['--last-in-suite']:
         last_job_args = ['email', 'timeout']
+        msg_fmt = '{opt} is only applicable to the last job in a suite'
         for arg in last_job_args:
             opt = '--{arg}'.format(arg=arg)
-            msg_fmt = '{opt} is only applicable to the last job in a suite'
             if args[opt]:
                 raise ValueError(msg_fmt.format(opt=opt))
 
-    if args['--first-in-suite'] or args['--last-in-suite']:
-        report_status = False
-    else:
-        report_status = True
-
+    report_status = not args['--first-in-suite'] and not args['--last-in-suite']
     name = args['--name']
     if not name or name.isdigit():
         raise ValueError("Please use a more descriptive value for --name")
@@ -48,7 +44,7 @@ def build_config(args):
     """
     Given a dict of arguments, build a job config
     """
-    config_paths = args.get('<conf_file>', list())
+    config_paths = args.get('<conf_file>', [])
     conf_dict = merge_configs(config_paths)
     # strip out targets; the worker will allocate new ones when we run
     # the job with --lock.
@@ -121,7 +117,7 @@ def dump_job_to_file(path, job_config, num=1):
     :param path:     The file path where the job config to append
     """
     num = int(num)
-    count_file_path = path + '.count'
+    count_file_path = f'{path}.count'
 
     jid = 0
     if os.path.exists(count_file_path):

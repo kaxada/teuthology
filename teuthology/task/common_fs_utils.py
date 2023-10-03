@@ -30,8 +30,9 @@ def generic_mkfs(ctx, config, devname_rtn):
         - common_fs_utils.generic_mount:
             client.0: testimage.client.0
     """
-    assert isinstance(config, list) or isinstance(config, dict), \
-        "task mkfs must be configured with a list or dictionary"
+    assert isinstance(
+        config, (list, dict)
+    ), "task mkfs must be configured with a list or dictionary"
     if isinstance(config, dict):
         images = config.items()
     else:
@@ -67,8 +68,9 @@ def generic_mount(ctx, config, devname_rtn):
         - common_fs_utils.generic_mount:
             client.0: testimage.client.0
     """
-    assert isinstance(config, list) or isinstance(config, dict), \
-        "task mount must be configured with a list or dictionary"
+    assert isinstance(
+        config, (list, dict)
+    ), "task mount must be configured with a list or dictionary"
     if isinstance(config, dict):
         role_images = config.items()
     else:

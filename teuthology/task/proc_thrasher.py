@@ -58,7 +58,7 @@ class ProcThrasher:
         procs = []
         self.log("Starting")
         while time_started + self.run_time > time.time():
-            if len(procs) > 0:
+            if procs:
                 self.log("Killing proc")
                 proc = random.choice(procs)
                 procs.remove(proc)
@@ -66,10 +66,10 @@ class ProcThrasher:
                 self.log("About to wait")
                 run.wait([proc])
                 self.log("Killed proc")
-                
+
             while len(procs) < self.num_procs:
-                self.log("Creating proc " + str(len(procs) + 1))
-                self.log("args are " + str(self.proc_args) + " kwargs: " + str(self.proc_kwargs))
+                self.log(f"Creating proc {str(len(procs) + 1)}")
+                self.log(f"args are {str(self.proc_args)} kwargs: {str(self.proc_kwargs)}")
                 procs.append(self.remote.run(
                         *self.proc_args,
                         ** self.proc_kwargs))

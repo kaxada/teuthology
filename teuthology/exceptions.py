@@ -4,10 +4,7 @@ class BranchNotFoundError(ValueError):
         self.repo = repo
 
     def __str__(self):
-        if self.repo:
-            repo_str = " in repo: %s" % self.repo
-        else:
-            repo_str = ""
+        repo_str = f" in repo: {self.repo}" if self.repo else ""
         return "Branch '{branch}' not found{repo_str}!".format(
             branch=self.branch, repo_str=repo_str)
 
@@ -18,10 +15,7 @@ class CommitNotFoundError(ValueError):
         self.repo = repo
 
     def __str__(self):
-        if self.repo:
-            repo_str = " in repo: %s" % self.repo
-        else:
-            repo_str = ""
+        repo_str = f" in repo: {self.repo}" if self.repo else ""
         return "'{commit}' not found{repo_str}!".format(
             commit=self.commit, repo_str=repo_str)
 
@@ -75,7 +69,7 @@ class CommandFailedError(Exception):
         """
         return [
             self.label or self.command,
-            'exit status {}'.format(self.exitstatus),
+            f'exit status {self.exitstatus}',
             '{{ type }}',
         ]
 
@@ -118,7 +112,7 @@ class ConnectionLostError(Exception):
         self.node = node
 
     def __str__(self):
-        node_str = 'to %s ' % self.node if self.node else ''
+        node_str = f'to {self.node} ' if self.node else ''
         return "SSH connection {node_str}was lost: {command!r}".format(
             node_str=node_str,
             command=self.command,
@@ -142,7 +136,7 @@ class VersionNotFoundError(Exception):
         self.url = url
 
     def __str__(self):
-        return "Failed to fetch package version from %s" % self.url
+        return f"Failed to fetch package version from {self.url}"
 
 
 class UnsupportedPackageTypeError(Exception):

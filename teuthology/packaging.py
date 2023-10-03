@@ -88,7 +88,7 @@ def install_package(package, remote):
                   'install',
                   '{package}'.format(package=package)]
     else:
-        log.error('install_package: bad flavor ' + flavor + '\n')
+        log.error(f'install_package: bad flavor {flavor}' + '\n')
         return False
     return remote.run(args=pkgcmd)
 
@@ -114,7 +114,7 @@ def remove_package(package, remote):
                   'erase',
                   '{package}'.format(package=package)]
     else:
-        log.error('remove_package: bad flavor ' + flavor + '\n')
+        log.error(f'remove_package: bad flavor {flavor}' + '\n')
         return False
     return remote.run(args=pkgcmd)
 
@@ -154,8 +154,7 @@ def get_koji_task_result(task_id, remote, ctx):
         kojihub_url=config.kojihub_url
     )
     log.info("Querying kojihub for the result of task {0}".format(task_id))
-    task_result = _run_python_command(py_cmd, remote, ctx)
-    return task_result
+    return _run_python_command(py_cmd, remote, ctx)
 
 
 def get_koji_task_rpm_info(package, task_rpms):
@@ -177,8 +176,7 @@ def get_koji_task_rpm_info(package, task_rpms):
     :param package:      The name of the package to retrieve.
     :returns:            A python dict containing info about the package.
     """
-    result = dict()
-    result['package_name'] = package
+    result = {'package_name': package}
     found_pkg = _find_koji_task_result(package, task_rpms)
     if not found_pkg:
         raise RuntimeError("The package {pkg} was not found in: {rpms}".format(
@@ -209,10 +207,14 @@ def _find_koji_task_result(package, rpm_list):
 
     If not found, returns None.
     """
-    for rpm in rpm_list:
-        if package == _get_koji_task_result_package_name(rpm):
-            return rpm
-    return None
+    return next(
+        (
+            rpm
+            for rpm in rpm_list
+            if package == _get_koji_task_result_package_name(rpm)
+        ),
+        None,
+    )
 
 
 def _get_koji_task_result_package_name(path):
@@ -274,8 +276,7 @@ def get_koji_build_info(build_id, remote, ctx):
         kojihub_url=config.kojihub_url
     )
     log.info('Querying kojihub for info on build {0}'.format(build_id))
-    build_info = _run_python_command(py_cmd, remote, ctx)
-    return build_info
+    return _run_python_command(py_cmd, remote, ctx)
 
 
 def _run_python_command(py_cmd, remote, ctx):
@@ -318,14 +319,13 @@ def get_kojiroot_base_url(build_info, arch="x86_64"):
     :returns:           The base_url to use when downloading rpms
                         from brew.
     """
-    base_url = "{kojiroot}/{package_name}/{ver}/{rel}/{arch}/".format(
+    return "{kojiroot}/{package_name}/{ver}/{rel}/{arch}/".format(
         kojiroot=config.kojiroot_url,
         package_name=build_info["package_name"],
         ver=build_info["version"],
         rel=build_info["release"],
         arch=arch,
     )
-    return base_url
 
 
 def get_koji_package_name(package, build_info, arch="x86_64"):
@@ -339,14 +339,12 @@ def get_koji_package_name(package, build_info, arch="x86_64"):
     :returns:           A string representing the file name for the
                         requested package in koji.
     """
-    pkg_name = "{name}-{ver}-{rel}.{arch}.rpm".format(
+    return "{name}-{ver}-{rel}.{arch}.rpm".format(
         name=package,
         ver=build_info["version"],
         rel=build_info["release"],
         arch=arch,
     )
-
-    return pkg_name
 
 
 def get_package_version(remote, package):
@@ -613,13 +611,13 @@ class GitbuilderProject(object):
             if not codename:
                 # lookup codename based on distro string
                 codename = OS._version_to_codename(distro, version)
-                if not codename:
-                    msg = "No codename found for: {distro} {version}".format(
-                        distro=distro,
-                        version=version,
-                    )
-                    log.exception(msg)
-                    raise RuntimeError()
+            if not codename:
+                msg = "No codename found for: {distro} {version}".format(
+                    distro=distro,
+                    version=version,
+                )
+                log.exception(msg)
+                raise RuntimeError()
             return codename
 
         return "{distro}{version}".format(
@@ -657,10 +655,7 @@ class GitbuilderProject(object):
         :returns: A string URI. Ex: ref/master
         """
         ref_name, ref_val = next(iter(self._choose_reference().items()))
-        if ref_name == 'sha1':
-            return 'sha1/%s' % ref_val
-        else:
-            return 'ref/%s' % ref_val
+        return f'sha1/{ref_val}' if ref_name == 'sha1' else f'ref/{ref_val}'
 
     def _choose_reference(self):
         """
@@ -697,7 +692,7 @@ class GitbuilderProject(object):
                     attrname
                 )
                 for n, v in zip(names, vars):
-                    log.info('%s: %s' % (n, v))
+                    log.info(f'{n}: {v}')
 
         if ref:
             warn('ref')
@@ -720,8 +715,7 @@ class GitbuilderProject(object):
         Figures out which package repo base URL to use.
         """
         template = config.baseurl_template
-        # get distro name and arch
-        base_url = template.format(
+        return template.format(
             host=config.gitbuilder_host,
             proj=self.project,
             pkg_type=self.pkg_type,
@@ -730,7 +724,6 @@ class GitbuilderProject(object):
             flavor=self.flavor,
             uri=self.uri_reference,
         )
-        return base_url
 
     def _get_package_version(self):
         """
@@ -831,7 +824,7 @@ class GitbuilderProject(object):
                 'sudo', 'zypper', '-n', 'removerepo', 'ceph-rpm-under-test'
             ])
         else:
-            remove_package('%s-release' % self.project, self.remote)
+            remove_package(f'{self.project}-release', self.remote)
 
     def _remove_deb_repo(self):
         self.remote.run(
@@ -847,7 +840,7 @@ class GitbuilderProject(object):
 class ShamanProject(GitbuilderProject):
     def __init__(self, project, job_config, ctx=None, remote=None):
         super(ShamanProject, self).__init__(project, job_config, ctx, remote)
-        self.query_url = 'https://%s/api/' % config.shaman_host
+        self.query_url = f'https://{config.shaman_host}/api/'
 
         # Force to use the "noarch" instead to build the uri.
         self.force_noarch = self.job_config.get("shaman", {}).get("force_noarch", False)
@@ -880,7 +873,7 @@ class ShamanProject(GitbuilderProject):
         req_obj['project'] = self.project
         req_obj['flavor'] = flavor
         arch = "noarch" if self.force_noarch else self.arch
-        req_obj['distros'] = '%s/%s' % (self.distro, arch)
+        req_obj['distros'] = f'{self.distro}/{arch}'
         ref_name, ref_val = list(self._choose_reference().items())[0]
         if ref_name == 'tag':
             req_obj['sha1'] = self._sha1 = self._tag_to_sha1()
@@ -889,11 +882,13 @@ class ShamanProject(GitbuilderProject):
         else:
             req_obj['ref'] = ref_val
         req_str = urlencode(req_obj)
-        uri = urljoin(
-            self.query_url,
-            'search',
-        ) + '?%s' % req_str
-        return uri
+        return (
+            urljoin(
+                self.query_url,
+                'search',
+            )
+            + f'?{req_str}'
+        )
 
     def _tag_to_sha1(self):
         """
@@ -941,7 +936,7 @@ class ShamanProject(GitbuilderProject):
         if distro in ('centos', 'rhel'):
             distro = 'centos'
             version = cls._parse_version(version)
-        return "%s/%s" % (distro, version)
+        return f"{distro}/{version}"
 
     def _get_package_sha1(self):
         # This doesn't raise because GitbuilderProject._get_package_sha1()
@@ -1011,20 +1006,20 @@ class ShamanProject(GitbuilderProject):
     def _get_repo(self):
         resp = requests.get(self.repo_url)
         resp.raise_for_status()
-        return str(resp.text)
+        return resp.text
 
     def _install_rpm_repo(self):
         dist_release = self.dist_release
         repo = self._get_repo()
         if dist_release in ['opensuse', 'sle']:
-            log.info("Writing zypper repo:\n{}".format(repo))
+            log.info(f"Writing zypper repo:\n{repo}")
             sudo_write_file(
                 self.remote,
                 '/etc/zypp/repos.d/{proj}.repo'.format(proj=self.project),
                 repo,
             )
         else:
-            log.info("Writing yum repo:\n{}".format(repo))
+            log.info(f"Writing yum repo:\n{repo}")
             sudo_write_file(
                 self.remote,
                 '/etc/yum.repos.d/{proj}.repo'.format(proj=self.project),
@@ -1056,8 +1051,4 @@ def get_builder_project():
     Depending on whether config.use_shaman is True or False, return
     GitbuilderProject or ShamanProject (the class, not an instance).
     """
-    if config.use_shaman is True:
-        builder_class = ShamanProject
-    else:
-        builder_class = GitbuilderProject
-    return builder_class
+    return ShamanProject if config.use_shaman is True else GitbuilderProject

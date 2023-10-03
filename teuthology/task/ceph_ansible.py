@@ -56,16 +56,14 @@ class CephAnsible(Task):
 
     def __init__(self, ctx, config):
         super(CephAnsible, self).__init__(ctx, config)
-        config = self.config or dict()
-        self.playbook = None
-        if 'playbook' in config:
-            self.playbook = self.config['playbook']
+        config = self.config or {}
+        self.playbook = self.config['playbook'] if 'playbook' in config else None
         if 'repo' not in config:
             self.config['repo'] = os.path.join(teuth_config.ceph_git_base_url,
                                                'ceph-ansible.git')
         # default vars to dev builds
         if 'vars' not in config:
-            vars = dict()
+            vars = {}
             config['vars'] = vars
         vars = config['vars']
         if 'ceph_dev' not in vars:
@@ -91,8 +89,8 @@ class CephAnsible(Task):
             playbook_file.flush()
             self.playbook_file = playbook_file.name
         # everything from vars in config go into group_vars/all file
-        extra_vars = dict()
-        extra_vars.update(self.config.get('vars', dict()))
+        extra_vars = {}
+        extra_vars.update(self.config.get('vars', {}))
         gvar = yaml.dump(extra_vars, default_flow_style=False)
         self.extra_vars_file = self._write_hosts_file(prefix='teuth_ansible_gvar',
                                                       content=gvar)
@@ -130,7 +128,7 @@ class CephAnsible(Task):
             self.run_playbook()
 
     def generate_hosts_file(self):
-        hosts_dict = dict()
+        hosts_dict = {}
         for group in sorted(self.groups_to_roles.keys()):
             role_prefix = self.groups_to_roles[group]
             want = lambda role: role.startswith(role_prefix)
@@ -146,13 +144,11 @@ class CephAnsible(Task):
         for group in sorted(hosts_dict.keys()):
             hosts_content += '[%s]\n' % group
             for hostname in sorted(hosts_dict[group].keys()):
-                vars = hosts_dict[group][hostname]
-                if vars:
-                    vars_list = []
-                    for key in sorted(vars.keys()):
-                        vars_list.append(
-                            "%s='%s'" % (key, json.dumps(vars[key]).strip('"'))
-                        )
+                if vars := hosts_dict[group][hostname]:
+                    vars_list = [
+                        f"""{key}='{json.dumps(vars[key]).strip('"')}'"""
+                        for key in sorted(vars.keys())
+                    ]
                     host_line = "{hostname} {vars}".format(
                         hostname=hostname,
                         vars=' '.join(vars_list),
@@ -272,7 +268,7 @@ class CephAnsible(Task):
 
     def wait_for_ceph_health(self):
         with contextutil.safe_while(sleep=15, tries=6,
-                                    action='check health') as proceed:
+                                        action='check health') as proceed:
             (remote,) = self.ctx.cluster.only('mon.a').remotes
             remote.run(args=[
                 'sudo', 'ceph', '--cluster', self.cluster_name, 'osd', 'tree'
@@ -283,35 +279,33 @@ class CephAnsible(Task):
             log.info("Waiting for Ceph health to reach HEALTH_OK \
                         or HEALTH WARN")
             while proceed():
-                out = remote.sh('sudo ceph --cluster %s health' % self.cluster_name)
+                out = remote.sh(f'sudo ceph --cluster {self.cluster_name} health')
                 state = out.split(None, 1)[0]
                 log.info("cluster in state: %s", state)
                 if state in ('HEALTH_OK', 'HEALTH_WARN'):
                     break
 
     def get_host_vars(self, remote):
-        extra_vars = self.config.get('vars', dict())
-        host_vars = dict()
+        extra_vars = self.config.get('vars', {})
+        host_vars = {}
         if not extra_vars.get('osd_auto_discovery', False):
             roles = self.ctx.cluster.remotes[remote]
             dev_needed = len([role for role in roles
                               if role.startswith('osd')])
             if teuth_config.get('ceph_ansible') and \
-                    self.ctx.machine_type in teuth_config['ceph_ansible']['has_lvm_scratch_disks']:
+                        self.ctx.machine_type in teuth_config['ceph_ansible']['has_lvm_scratch_disks']:
                 devices = get_file(remote, "/scratch_devs").decode().split()
                 vols = []
 
                 for dev in devices:
-                   if 'vg_nvme' in dev:
-                       splitpath = dev.split('/')
-                       vol = dict()
-                       vol['data_vg'] = splitpath[2]
-                       vol['data'] = splitpath[3]
-                       vols.append(vol)
+                    if 'vg_nvme' in dev:
+                        splitpath = dev.split('/')
+                        vol = {'data_vg': splitpath[2], 'data': splitpath[3]}
+                        vols.append(vol)
                 extra_vars['lvm_volumes'] = vols
                 self.config.update({'vars': extra_vars})
             else:
-                host_vars['devices'] = get_scratch_devices(remote)[0:dev_needed]
+                host_vars['devices'] = get_scratch_devices(remote)[:dev_needed]
         if 'monitor_interface' not in extra_vars:
             host_vars['monitor_interface'] = remote.interface
         if 'radosgw_interface' not in extra_vars:
@@ -375,9 +369,7 @@ class CephAnsible(Task):
                 'python-dev'
             ])
         ansible_repo = self.config['repo']
-        branch = 'master'
-        if self.config.get('branch'):
-            branch = self.config.get('branch')
+        branch = self.config.get('branch') if self.config.get('branch') else 'master'
         ansible_ver = 'ansible==2.5'
         if self.config.get('ansible-version'):
             ansible_ver = 'ansible==' + self.config.get('ansible-version')
@@ -389,15 +381,17 @@ class CephAnsible(Task):
                 ],
             check_status=False
         )
-        ceph_installer.run(args=[
-            'mkdir',
-            run.Raw('~/ceph-ansible'),
-            run.Raw(';'),
-            'git',
-            'clone',
-            run.Raw('-b %s' % branch),
-            run.Raw(ansible_repo),
-        ])
+        ceph_installer.run(
+            args=[
+                'mkdir',
+                run.Raw('~/ceph-ansible'),
+                run.Raw(';'),
+                'git',
+                'clone',
+                run.Raw(f'-b {branch}'),
+                run.Raw(ansible_repo),
+            ]
+        )
         self._copy_and_print_config()
         str_args = ' '.join(args)
         ceph_installer.run(args=[
@@ -433,8 +427,7 @@ class CephAnsible(Task):
             run.Raw(';'),
             run.Raw(str_args)
         ])
-        wait_for_health = self.config.get('wait-for-health', True)
-        if wait_for_health:
+        if wait_for_health := self.config.get('wait-for-health', True):
             self.wait_for_ceph_health()
         # for the teuthology workunits to work we
         # need to fix the permission on keyring to be readable by them
@@ -483,12 +476,14 @@ class CephAnsible(Task):
     def fix_keyring_permission(self):
         clients_only = lambda role: role.startswith('client')
         for client in self.cluster.only(clients_only).remotes.keys():
-            client.run(args=[
-                'sudo',
-                'chmod',
-                run.Raw('o+r'),
-                '/etc/ceph/%s.client.admin.keyring' % self.cluster_name
-            ])
+            client.run(
+                args=[
+                    'sudo',
+                    'chmod',
+                    run.Raw('o+r'),
+                    f'/etc/ceph/{self.cluster_name}.client.admin.keyring',
+                ]
+            )
 
 
 class CephAnsibleError(Exception):

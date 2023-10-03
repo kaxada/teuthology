@@ -252,8 +252,8 @@ def remove_ceph_packages(ctx):
                                ]
     pkgs = str.join(' ', ceph_packages_to_remove)
     for remote in ctx.cluster.remotes.keys():
+        log.info("Remove any broken repos")
         if remote.os.package_type == 'rpm':
-            log.info("Remove any broken repos")
             dist_release = remote.os.name
             remote.run(
                 args=['sudo', 'rm', run.Raw("/etc/yum.repos.d/*ceph*")],
@@ -285,7 +285,6 @@ def remove_ceph_packages(ctx):
                 log.info('Remove any ceph packages')
                 remote.sh('sudo yum remove -y', check_status=False)
         else:
-            log.info("Remove any broken repos")
             remote.run(
                 args=['sudo', 'rm', run.Raw("/etc/apt/sources.list.d/*ceph*")],
                 check_status=False,
@@ -441,20 +440,19 @@ def check_console(hostname):
         host=shortname,
         domain=console.ipmidomain,
     )
-    log.info('checking console status of %s' % cname)
+    log.info(f'checking console status of {cname}')
     if console.check_status():
-        log.info('console ready on %s' % cname)
+        log.info(f'console ready on {cname}')
         return
     if console.check_power('on'):
-        log.info('attempting to reboot %s' % cname)
+        log.info(f'attempting to reboot {cname}')
         console.power_cycle()
     else:
-        log.info('attempting to power on %s' % cname)
+        log.info(f'attempting to power on {cname}')
         console.power_on()
     timeout = 100
-    log.info('checking console status of %s with timeout %s' %
-             (cname, timeout))
+    log.info(f'checking console status of {cname} with timeout {timeout}')
     if console.check_status(timeout=timeout):
-        log.info('console ready on %s' % cname)
+        log.info(f'console ready on {cname}')
     else:
-        log.error("Failed to get console status for %s, " % cname)
+        log.error(f"Failed to get console status for {cname}, ")

@@ -22,7 +22,7 @@ def enabled(warn=False):
     :param warn: Whether or not to log a message containing unset parameters
     :returns: True if they are present; False if they are not
     """
-    conf = config.get(config_section, dict())
+    conf = config.get(config_section, {})
     params = ['endpoint', 'machine_types']
     unset = [_ for _ in params if not conf.get(_)]
     if unset and warn:
@@ -30,7 +30,7 @@ def enabled(warn=False):
             "Pelagos is disabled; set the following config options to enable: %s",
             ' '.join(unset),
         )
-    return (unset == [])
+    return not unset
 
 
 def get_types():
@@ -42,7 +42,7 @@ def get_types():
     """
     if not enabled():
         return []
-    conf = config.get(config_section, dict())
+    conf = config.get(config_section, {})
     types = conf.get('machine_types', '')
     if not isinstance(types, list):
         types = [_ for _ in types.split(',') if _]
@@ -58,17 +58,10 @@ class Pelagos(object):
     def __init__(self, name, os_type, os_version=""):
         #for service should be a hostname, not a user@host
         split_uri = re.search(r'(\w*)@(.+)', canonicalize_hostname(name))
-        if split_uri is not None:
-            self.name = split_uri.groups()[1]
-        else:
-            self.name = name
-
+        self.name = split_uri.groups()[1] if split_uri is not None else name
         self.os_type = os_type
         self.os_version = os_version
-        if os_version:
-            self.os_name = os_type + "-" + os_version
-        else:
-            self.os_name = os_type
+        self.os_name = f"{os_type}-{os_version}" if os_version else os_type
         self.log = log.getChild(self.name)
 
     def create(self, wait=True):
@@ -101,7 +94,7 @@ class Pelagos(object):
                 while proceed():
                     if not self.is_task_active(location):
                         break
-                    self.log.info('Sleeping %s seconds' % sleep_time)
+                    self.log.info(f'Sleeping {sleep_time} seconds')
         except Exception as e:
             if location:
                 self.cancel_deploy_task(location)
@@ -122,14 +115,11 @@ class Pelagos(object):
             status_response = self.do_request('', url=task_url, verify=False)
         except HTTPError as err:
             self.log.error("Task fail reason: '%s'", err.reason)
-            if err.status_code == 404:
-                self.log.error(err.reason)
-                self.task_status_response = 'failed'
-                return False
-            else:
+            if err.status_code != 404:
                 raise HTTPError(err.code, err.reason)
-            self.log.debug("Response code '%s'",
-                                str(status_response.status_code))
+            self.log.error(err.reason)
+            self.task_status_response = 'failed'
+            return False
         self.task_status_response = status_response
         if status_response.status_code == 202:
             status = status_response.headers['status']

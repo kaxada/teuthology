@@ -37,9 +37,7 @@ def main(args):
     with open(config_file_path, 'r') as config_file:
         job_config = yaml.safe_load(config_file)
 
-    loglevel = logging.INFO
-    if verbose:
-        loglevel = logging.DEBUG
+    loglevel = logging.DEBUG if verbose else logging.INFO
     log.setLevel(loglevel)
 
     log_file_path = os.path.join(job_config['archive_path'],
@@ -127,7 +125,7 @@ def run_job(job_config, teuth_bin_path, archive_dir, verbose):
     job_archive = os.path.join(job_config['archive_path'], 'orig.config.yaml')
     arg.extend(['--', job_archive])
 
-    log.debug("Running: %s" % ' '.join(arg))
+    log.debug(f"Running: {' '.join(arg)}")
     p = subprocess.Popen(args=arg)
     log.info("Job archive: %s", job_config['archive_path'])
     log.info("Job PID: %s", str(p.pid))
@@ -158,10 +156,7 @@ def failure_is_reimage(failure_reason):
     if not failure_reason:
         return False
     reimage_failure = "Error reimaging machines:"
-    if reimage_failure in failure_reason:
-        return True
-    else:
-        return False
+    return reimage_failure in failure_reason
 
 def check_for_reimage_failures_and_mark_down(targets, count=10):
     # Grab paddles history of jobs in the machine
@@ -208,7 +203,13 @@ def reimage(job_config):
     except Exception as e:
         log.exception('Reimaging error. Nuking machines...')
         # Reimage failures should map to the 'dead' status instead of 'fail'
-        report.try_push_job_info(ctx.config, dict(status='dead', failure_reason='Error reimaging machines: ' + str(e)))
+        report.try_push_job_info(
+            ctx.config,
+            dict(
+                status='dead',
+                failure_reason=f'Error reimaging machines: {str(e)}',
+            ),
+        )
         nuke(ctx, True)
         # Machine that fails to reimage after 10 times will be marked down
         check_for_reimage_failures_and_mark_down(targets)

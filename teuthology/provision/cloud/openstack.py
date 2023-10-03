@@ -53,7 +53,7 @@ class OpenStackProvider(Provider):
     _driver_posargs = ['username', 'password']
 
     def _get_driver(self):
-        self._auth_token = util.AuthToken(name='teuthology_%s' % self.name)
+        self._auth_token = util.AuthToken(name=f'teuthology_{self.name}')
         with self._auth_token as token:
             driver = super(OpenStackProvider, self)._get_driver()
             # We must apparently call get_service_catalog() so that
@@ -123,23 +123,22 @@ class OpenStackProvider(Provider):
                 allow_networks=[allow_networks]
             networks_re = [re.compile(x) for x in allow_networks]
             try:
-                networks = retry(self.driver.ex_list_networks)
-                if networks:
+                if networks := retry(self.driver.ex_list_networks):
                     self._networks = filter(
                         lambda s: any(x.match(s.name) for x in networks_re),
                         networks
                     )
                 else:
-                    self._networks = list()
+                    self._networks = []
             except AttributeError:
                 log.warning("Unable to list networks for %s", self.driver)
-                self._networks = list()
+                self._networks = []
         return self._networks
 
     @property
     def default_userdata(self):
         if not hasattr(self, '_default_userdata'):
-            self._default_userdata = self.conf.get('userdata', dict())
+            self._default_userdata = self.conf.get('userdata', {})
         return self._default_userdata
 
     @property
@@ -151,7 +150,7 @@ class OpenStackProvider(Provider):
                 )
             except AttributeError:
                 log.warning("Unable to list security groups for %s", self.driver)
-                self._security_groups = list()
+                self._security_groups = []
         return self._security_groups
 
 
@@ -203,11 +202,11 @@ class OpenStackProvisioner(base.Provisioner):
         :return: None
         """
         driver_name = self.provider.driver_name.lower()
-        full_conf = conf or dict()
-        driver_conf = full_conf.get(driver_name, dict())
-        legacy_conf = getattr(config, driver_name) or dict()
-        defaults = self.defaults.get(driver_name, dict())
-        confs = list()
+        full_conf = conf or {}
+        driver_conf = full_conf.get(driver_name, {})
+        legacy_conf = getattr(config, driver_name) or {}
+        defaults = self.defaults.get(driver_name, {})
+        confs = []
         for obj in (full_conf, driver_conf, legacy_conf, defaults):
             obj = deepcopy(obj)
             if isinstance(obj, list):
@@ -228,11 +227,9 @@ class OpenStackProvisioner(base.Provisioner):
             image=self.image,
             ex_userdata=userdata,
         )
-        networks = self.provider.networks
-        if networks:
+        if networks := self.provider.networks:
             create_args['networks'] = networks
-        security_groups = self.security_groups
-        if security_groups:
+        if security_groups := self.security_groups:
             create_args['ex_security_groups'] = security_groups
         self._node = retry(
             self.provider.driver.create_node,
@@ -283,8 +280,9 @@ class OpenStackProvisioner(base.Provisioner):
 
     def _destroy_volumes(self):
         all_volumes = retry(self.provider.driver.list_volumes)
-        our_volumes = [vol for vol in all_volumes
-                       if vol.name.startswith("%s_" % self.name)]
+        our_volumes = [
+            vol for vol in all_volumes if vol.name.startswith(f"{self.name}_")
+        ]
         for vol in our_volumes:
             try:
                 retry(self.provider.driver.detach_volume, vol)
@@ -300,10 +298,7 @@ class OpenStackProvisioner(base.Provisioner):
             name=self.name,
             ip=self.ips[0],
         ))
-        nsupdate_url = "%s?%s" % (
-            config.nsupdate_url,
-            query,
-        )
+        nsupdate_url = f"{config.nsupdate_url}?{query}"
         resp = requests.get(nsupdate_url)
         resp.raise_for_status()
 
@@ -319,7 +314,7 @@ class OpenStackProvisioner(base.Provisioner):
                     AuthenticationException,
                 ):
                     pass
-        cmd = "while [ ! -e '%s' ]; do sleep 5; done" % self._sentinel_path
+        cmd = f"while [ ! -e '{self._sentinel_path}' ]; do sleep 5; done"
         self.remote.run(args=cmd, timeout=600)
         log.info("Node is ready: %s", self.node)
 
@@ -339,8 +334,8 @@ class OpenStackProvisioner(base.Provisioner):
                 break
         if not matches:
             raise RuntimeError(
-                "Could not find an image for %s %s" %
-                (self.os_type, self.os_version))
+                f"Could not find an image for {self.os_type} {self.os_version}"
+            )
         return matches[0]
 
     @property
@@ -350,9 +345,7 @@ class OpenStackProvisioner(base.Provisioner):
         cpu = self.conf['machine']['cpus']
 
         def good_size(size):
-            if (size.ram < ram or size.disk < disk or size.vcpus < cpu):
-                return False
-            return True
+            return size.ram >= ram and size.disk >= disk and size.vcpus >= cpu
 
         all_sizes = self.provider.sizes
         good_sizes = filter(good_size, all_sizes)
@@ -367,7 +360,7 @@ class OpenStackProvisioner(base.Provisioner):
         group_names = self.provider.conf.get('security_groups')
         if group_names is None:
             return
-        result = list()
+        result = []
         groups = self.provider.security_groups
         for name in group_names:
             matches = [group for group in groups if group.name == name]
@@ -400,23 +393,20 @@ class OpenStackProvisioner(base.Provisioner):
             ['touch', self._sentinel_path]
         ]
         if spec in self.provider.default_userdata:
-            base_config = deepcopy(
-                    self.provider.default_userdata.get(spec, dict()))
+            base_config = deepcopy(self.provider.default_userdata.get(spec, {}))
         base_config.update(user=self.user)
         if 'manage_etc_hosts' not in base_config:
             base_config.update(
                 manage_etc_hosts=True,
                 hostname=self.hostname,
             )
-        base_config['runcmd'] = base_config.get('runcmd', list())
+        base_config['runcmd'] = base_config.get('runcmd', [])
         base_config['runcmd'].extend(runcmd)
-        ssh_pubkey = util.get_user_ssh_pubkey()
-        if ssh_pubkey:
-            authorized_keys = base_config.get('ssh_authorized_keys', list())
+        if ssh_pubkey := util.get_user_ssh_pubkey():
+            authorized_keys = base_config.get('ssh_authorized_keys', [])
             authorized_keys.append(ssh_pubkey)
             base_config['ssh_authorized_keys'] = authorized_keys
-        user_str = "#cloud-config\n" + yaml.safe_dump(base_config)
-        return user_str
+        return "#cloud-config\n" + yaml.safe_dump(base_config)
 
     @property
     def node(self):
@@ -425,7 +415,7 @@ class OpenStackProvisioner(base.Provisioner):
         matches = self._find_nodes()
         msg = "Unknown error locating %s"
         if not matches:
-            msg = "No nodes found with name '%s'" % self.name
+            msg = f"No nodes found with name '{self.name}'"
             log.warning(msg)
             return
         elif len(matches) > 1:
@@ -437,8 +427,7 @@ class OpenStackProvisioner(base.Provisioner):
 
     def _find_nodes(self):
         nodes = retry(self.provider.driver.list_nodes)
-        matches = [node for node in nodes if node.name == self.name]
-        return matches
+        return [node for node in nodes if node.name == self.name]
 
     def _destroy(self):
         self._destroy_volumes()
@@ -449,4 +438,4 @@ class OpenStackProvisioner(base.Provisioner):
         if len(nodes) > 1:
             log.warning("Found multiple nodes named '%s' to destroy!", self.name)
         log.info("Destroying nodes: %s", nodes)
-        return all([node.destroy() for node in nodes])
+        return all(node.destroy() for node in nodes)

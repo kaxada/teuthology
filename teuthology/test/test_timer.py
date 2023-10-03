@@ -7,7 +7,7 @@ from time import time
 class TestTimer(object):
     def test_data_empty(self):
         self.timer = timer.Timer()
-        assert self.timer.data == dict()
+        assert self.timer.data == {}
 
     def test_data_one_mark(self):
         self.timer = timer.Timer()
@@ -58,7 +58,7 @@ class TestTimer(object):
                 self.timer.write()
                 _open.assert_called_once_with(_path, 'w')
                 _safe_dump.assert_called_once_with(
-                    dict(),
+                    {},
                     _open.return_value.__enter__.return_value,
                     default_flow_style=False,
                 )

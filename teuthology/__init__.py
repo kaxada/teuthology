@@ -48,7 +48,7 @@ try:
         ).decode()).strip()
 except Exception as e:
     # before logging; should be unusual
-    print("Can't get version from git rev-parse %s" % e, file=sys.stderr)
+    print(f"Can't get version from git rev-parse {e}", file=sys.stderr)
 
 # If we are running inside a virtualenv, ensure we have its 'bin' directory in
 # our PATH. This doesn't happen automatically if scripts are called without

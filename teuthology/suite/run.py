@@ -42,7 +42,7 @@ class Run(object):
         self.args = args
         # We assume timestamp is a datetime.datetime object
         self.timestamp = self.args.timestamp or \
-            datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
+                datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
         self.user = self.args.user or pwd.getpwuid(os.getuid()).pw_name
 
         self.name = self.make_run_name()
@@ -54,7 +54,7 @@ class Run(object):
 
         self.base_config = self.create_initial_config()
         # caches package versions to minimize requests to gbs
-        self.package_versions = dict()
+        self.package_versions = {}
 
         # Interpret any relative paths as being relative to ceph-qa-suite
         # (absolute paths are unchanged by this)
@@ -131,7 +131,7 @@ class Run(object):
             kernel_hash = 'distro'
         # Skip the stanza if '-k none' is given
         elif self.args.kernel_branch is None or \
-             self.args.kernel_branch.lower() == 'none':
+                 self.args.kernel_branch.lower() == 'none':
             kernel_hash = None
         else:
             kernel_hash = util.get_gitbuilder_hash(
@@ -150,7 +150,7 @@ class Run(object):
             if kernel_hash != 'distro':
                 kernel_dict['kernel']['flavor'] = 'default'
         else:
-            kernel_dict = dict()
+            kernel_dict = {}
         return kernel_dict
 
     def choose_ceph_hash(self):
@@ -166,20 +166,14 @@ class Run(object):
             if self.args.validate_sha1:
                 ceph_hash = util.git_validate_sha1(repo_name, ceph_hash)
             if not ceph_hash:
-                exc = CommitNotFoundError(
-                    self.args.ceph_sha1,
-                    '%s.git' % repo_name
-                )
+                exc = CommitNotFoundError(self.args.ceph_sha1, f'{repo_name}.git')
                 util.schedule_fail(message=str(exc), name=self.name)
             log.info("ceph sha1 explicitly supplied")
 
         elif self.args.ceph_branch:
             ceph_hash = util.git_ls_remote(repo_name, self.args.ceph_branch)
             if not ceph_hash:
-                exc = BranchNotFoundError(
-                    self.args.ceph_branch,
-                    '%s.git' % repo_name
-                )
+                exc = BranchNotFoundError(self.args.ceph_branch, f'{repo_name}.git')
                 util.schedule_fail(message=str(exc), name=self.name)
 
         log.info("ceph sha1: {hash}".format(hash=ceph_hash))
@@ -229,7 +223,7 @@ class Run(object):
         if not teuthology_branch:
             teuthology_branch = os.environ.get('TEUTH_BRANCH', None)
         if not teuthology_branch:
-            branch_file_path = self.suite_repo_path + '/qa/.teuthology_branch'
+            branch_file_path = f'{self.suite_repo_path}/qa/.teuthology_branch'
             log.debug('Check file %s exists', branch_file_path)
             if os.path.exists(branch_file_path):
                 log.debug('Found teuthology branch config file %s',
@@ -258,10 +252,7 @@ class Run(object):
 
     @property
     def ceph_repo_name(self):
-        if self.args.ceph_repo:
-            return self._repo_name(self.args.ceph_repo)
-        else:
-            return 'ceph'
+        return self._repo_name(self.args.ceph_repo) if self.args.ceph_repo else 'ceph'
 
     @property
     def suite_repo_name(self):
@@ -375,8 +366,7 @@ class Run(object):
             dry_run=self.args.dry_run,
             verbose=self.args.verbose,
             log_prefix="Results: ")
-        results_url = get_results_url(self.base_config.name)
-        if results_url:
+        if results_url := get_results_url(self.base_config.name):
             log.info("Test results viewable at %s", results_url)
 
 
@@ -393,11 +383,9 @@ class Run(object):
         for yaml_path in self.base_yaml_paths:
             full_yaml_path = os.path.join(self.suite_repo_path, yaml_path)
             if not os.path.exists(full_yaml_path):
-                raise IOError("File not found: " + full_yaml_path)
+                raise IOError(f"File not found: {full_yaml_path}")
 
-        num_jobs = self.schedule_suite()
-
-        if num_jobs:
+        if num_jobs := self.schedule_suite():
             self.write_result()
 
     def collect_jobs(self, arch, configs, newest=False, limit=0):
@@ -504,7 +492,7 @@ class Run(object):
             )
             throttle = self.args.throttle
             if not self.args.dry_run and throttle:
-                log.info("pause between jobs : --throttle " + str(throttle))
+                log.info(f"pause between jobs : --throttle {str(throttle)}")
                 time.sleep(int(throttle))
 
     def check_priority(self, jobs_to_schedule):
@@ -519,11 +507,13 @@ Use the following testing priority
 150 to 199: Testing a particular feature/fix with less than 100 jobs and results will be available in a day or so.
 200 to 1000: Large test runs that can be done over the course of a week.
 Note: To force run, use --force-priority'''
-        if priority < 50:
-            util.schedule_fail(msg)
-        elif priority < 75 and jobs_to_schedule > 25:
-            util.schedule_fail(msg)
-        elif priority < 150 and jobs_to_schedule > 100:
+        if (
+            priority < 50
+            or priority < 75
+            and jobs_to_schedule > 25
+            or priority < 150
+            and jobs_to_schedule > 100
+        ):
             util.schedule_fail(msg)
 
     def check_num_jobs(self, jobs_to_schedule):
@@ -544,7 +534,7 @@ Note: If you still want to go ahead, use --job-threshold 0'''
         name = self.name
         if self.args.arch:
             arch = self.args.arch
-            log.debug("Using '%s' as an arch" % arch)
+            log.debug(f"Using '{arch}' as an arch")
         else:
             arch = util.get_arch(self.base_config.machine_type)
         suite_name = self.base_config.suite
@@ -554,7 +544,7 @@ Note: If you still want to go ahead, use --job-threshold 0'''
             'suites',
             self.base_config.suite.replace(':', '/'),
         ))
-        log.debug('Suite %s in %s' % (suite_name, suite_path))
+        log.debug(f'Suite {suite_name} in {suite_path}')
         configs = build_matrix(suite_path,
                                subset=self.args.subset,
                                seed=self.args.seed)
@@ -574,8 +564,7 @@ Note: If you still want to go ahead, use --job-threshold 0'''
 
         # compute job limit in respect of --sleep-before-teardown
         job_limit = self.args.limit or 0
-        sleep_before_teardown = int(self.args.sleep_before_teardown or 0)
-        if sleep_before_teardown:
+        if sleep_before_teardown := int(self.args.sleep_before_teardown or 0):
             if job_limit == 0:
                 log.warning('The --sleep-before-teardown option was provided: '
                             'only 1 job will be scheduled. '
@@ -585,10 +574,8 @@ Note: If you still want to go ahead, use --job-threshold 0'''
                 job_limit = 1
             elif self.args.non_interactive:
                 log.warning(
-                    'The --sleep-before-teardown option is active. '
-                    'There will be a maximum {} jobs running '
-                    'which will fall asleep for {}'
-                    .format(job_limit, format_timespan(sleep_before_teardown)))
+                    f'The --sleep-before-teardown option is active. There will be a maximum {job_limit} jobs running which will fall asleep for {format_timespan(sleep_before_teardown)}'
+                )
             elif job_limit > 4:
                 are_you_insane=(
                     'There are {total} configs and {maximum} job limit is used. '
@@ -611,7 +598,7 @@ Note: If you still want to go ahead, use --job-threshold 0'''
         limit = self.args.newest
         while backtrack <= limit:
             jobs_missing_packages, jobs_to_schedule = \
-                self.collect_jobs(arch,
+                    self.collect_jobs(arch,
                     util.filter_configs(configs,
                         filter_in=self.args.filter_in,
                         filter_out=self.args.filter_out,
@@ -621,7 +608,7 @@ Note: If you still want to go ahead, use --job-threshold 0'''
                                   self.args.newest, job_limit)
             if jobs_missing_packages and self.args.newest:
                 new_sha1 = \
-                    util.find_git_parent('ceph', self.base_config.sha1)
+                        util.find_git_parent('ceph', self.base_config.sha1)
                 if new_sha1 is None:
                     util.schedule_fail('Backtrack for --newest failed', name)
                  # rebuild the base config to resubstitute sha1

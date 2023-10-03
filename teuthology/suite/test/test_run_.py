@@ -9,11 +9,9 @@ from mock import patch, call, ANY, DEFAULT
 from teuthology.util.compat import PY3
 if PY3:
     from io import StringIO
-    from io import BytesIO
 else:
     from io import BytesIO as StringIO
-    from io import BytesIO
-
+from io import BytesIO
 from teuthology.config import config, YamlConfig
 from teuthology.exceptions import ScheduleFailError
 from teuthology.suite import run
@@ -36,7 +34,7 @@ class TestRun(object):
             flavor='flavor',
             distro='ubuntu',
             machine_type='machine_type',
-            base_yaml_paths=list(),
+            base_yaml_paths=[],
         )
         self.args = YamlConfig.from_dict(self.args_dict)
 
@@ -170,10 +168,10 @@ class TestRun(object):
         }
         self.args = YamlConfig.from_dict(self.args_dict)
         with patch.multiple(
-            'teuthology.packaging.GitbuilderProject',
-            _get_package_sha1=DEFAULT,
-        ) as m:
-            assert m != dict()
+                'teuthology.packaging.GitbuilderProject',
+                _get_package_sha1=DEFAULT,
+            ) as m:
+            assert m != {}
             m['_get_package_sha1'].return_value = 'SHA1'
             conf = dict(
                 os_type='ubuntu',
@@ -201,7 +199,7 @@ class TestScheduleSuite(object):
             distro='ubuntu',
             distro_version='14.04',
             machine_type='machine_type',
-            base_yaml_paths=list(),
+            base_yaml_paths=[],
         )
         self.args = YamlConfig.from_dict(self.args_dict)
 
@@ -248,14 +246,14 @@ class TestScheduleSuite(object):
             contextlib.closing(BytesIO())
         ]
         m_get_install_task_flavor.return_value = 'default'
-        m_get_package_versions.return_value = dict()
+        m_get_package_versions.return_value = {}
         m_has_packages_for_distro.return_value = True
         # schedule_jobs() is just neutered; check calls below
 
         self.args.newest = 0
         self.args.num = 42
         runobj = self.klass(self.args)
-        runobj.base_args = list()
+        runobj.base_args = []
         count = runobj.schedule_suite()
         assert(count == 1)
         assert runobj.base_config['suite_sha1'] == 'suite_hash'
@@ -319,18 +317,16 @@ class TestScheduleSuite(object):
             (build_matrix_desc, build_matrix_frags),
         ]
         m_build_matrix.return_value = build_matrix_output
-        m_open.side_effect = [StringIO('field: val\n') for i in range(11)]
+        m_open.side_effect = [StringIO('field: val\n') for _ in range(11)]
         m_get_install_task_flavor.return_value = 'default'
-        m_get_package_versions.return_value = dict()
-        m_has_packages_for_distro.side_effect = [
-            False for i in range(11)
-        ]
+        m_get_package_versions.return_value = {}
+        m_has_packages_for_distro.side_effect = [False for _ in range(11)]
 
-        m_find_git_parent.side_effect = lambda proj, sha1: sha1 + '^'
+        m_find_git_parent.side_effect = lambda proj, sha1: f'{sha1}^'
 
         self.args.newest = 10
         runobj = self.klass(self.args)
-        runobj.base_args = list()
+        runobj.base_args = []
         with pytest.raises(ScheduleFailError) as exc:
             runobj.schedule_suite()
         assert 'Exceeded 10 backtracks' in str(exc.value)
@@ -379,21 +375,20 @@ class TestScheduleSuite(object):
         ]
         m_build_matrix.return_value = build_matrix_output
         m_open.side_effect = [
-            StringIO('field: val\n') for i in range(NUM_FAILS+1)
-        ] + [
-            contextlib.closing(BytesIO())
-        ] 
+            StringIO('field: val\n') for _ in range(NUM_FAILS + 1)
+        ] + [contextlib.closing(BytesIO())]
         m_get_install_task_flavor.return_value = 'default'
-        m_get_package_versions.return_value = dict()
+        m_get_package_versions.return_value = {}
         # NUM_FAILS, then success
-        m_has_packages_for_distro.side_effect = \
-            [False for i in range(NUM_FAILS)] + [True]
+        m_has_packages_for_distro.side_effect = [
+            False for _ in range(NUM_FAILS)
+        ] + [True]
 
-        m_find_git_parent.side_effect = lambda proj, sha1: sha1 + '^'
+        m_find_git_parent.side_effect = lambda proj, sha1: f'{sha1}^'
 
         self.args.newest = 10
         runobj = self.klass(self.args)
-        runobj.base_args = list()
+        runobj.base_args = []
         count = runobj.schedule_suite()
         assert count == 1
         m_has_packages_for_distro.assert_has_calls(

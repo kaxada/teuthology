@@ -31,18 +31,19 @@ class TestAnsibleTask(TestTask):
         self.ctx.cluster = Cluster()
         self.ctx.cluster.add(Remote('user@remote1'), ['role1'])
         self.ctx.cluster.add(Remote('user@remote2'), ['role2'])
-        self.ctx.config = dict()
-        self.ctx.summary = dict()
+        self.ctx.config = {}
+        self.ctx.summary = {}
         self.ctx.archive = '../'
         self.task_config = dict(playbook=[])
         self.start_patchers()
 
     def start_patchers(self):
-        self.patchers = dict()
-        self.mocks = dict()
-        self.patchers['mkdtemp'] = patch(
-            'teuthology.task.ansible.mkdtemp', return_value='/tmp/'
-        )
+        self.mocks = {}
+        self.patchers = {
+            'mkdtemp': patch(
+                'teuthology.task.ansible.mkdtemp', return_value='/tmp/'
+            )
+        }
         m_NTF = Mock()
         m_file = Mock()
         m_file.name = 'file_name'
@@ -62,7 +63,7 @@ class TestAnsibleTask(TestTask):
         self.patchers['shutil_rmtree'] = patch(
             'teuthology.task.ansible.shutil.rmtree',
         )
-        for name in self.patchers.keys():
+        for name in self.patchers:
             self.start_patcher(name)
 
     def start_patcher(self, name):
@@ -160,9 +161,7 @@ class TestAnsibleTask(TestTask):
             task.get_playbook()
 
     def test_playbook_wrong_type(self):
-        self.task_config.update(dict(
-            playbook=dict(),
-        ))
+        self.task_config.update(dict(playbook={}))
         task = self.klass(self.ctx, self.task_config)
         with raises(TypeError):
             task.get_playbook()
@@ -244,14 +243,7 @@ class TestAnsibleTask(TestTask):
         assert task.inventory == '/etc/ansible/hosts'
         assert task.generated_inventory is False
 
-    @mark.parametrize(
-        'group_vars',
-        [
-            dict(),
-            dict(all=dict(var0=0, var1=1)),
-            dict(foo=dict(var0=0), bar=dict(var0=1)),
-        ]
-    )
+    @mark.parametrize('group_vars', [{}, dict(all=dict(var0=0, var1=1)), dict(foo=dict(var0=0), bar=dict(var0=1))])
     def test_generate_inventory(self, group_vars):
         self.task_config.update(dict(
             playbook=[]
@@ -269,7 +261,7 @@ class TestAnsibleTask(TestTask):
         fake_files = [hosts_file_obj]
         # Create StringIO object for each group_vars file
         if group_vars:
-            fake_files += [StringIO() for i in sorted(group_vars)]
+            fake_files += [StringIO() for _ in sorted(group_vars)]
         m_file.side_effect = fake_files
         task.generate_inventory()
         file_calls = m_file.call_args_list
@@ -278,7 +270,7 @@ class TestAnsibleTask(TestTask):
         # Verify each group_vars file was created
         for gv_name, call_obj in zip(sorted(group_vars), file_calls[1:]):
             gv_path = call_obj[0][0]
-            assert gv_path == os.path.join(gv_dir, '%s.yml' % gv_name)
+            assert gv_path == os.path.join(gv_dir, f'{gv_name}.yml')
         # Verify the group_vars dir was created
         if group_vars:
             mkdir_call = self.mocks['os_mkdir'].call_args_list
@@ -507,7 +499,7 @@ class TestCephLabTask(TestAnsibleTask):
 
     def setup(self):
         super(TestCephLabTask, self).setup()
-        self.task_config = dict()
+        self.task_config = {}
 
     def start_patchers(self):
         super(TestCephLabTask, self).start_patchers()
@@ -531,7 +523,7 @@ class TestCephLabTask(TestAnsibleTask):
     def test_find_repo_http(self, m_fetch_repo):
         repo = os.path.join(config.ceph_git_base_url,
                             'ceph-cm-ansible.git')
-        task = self.klass(self.ctx, dict())
+        task = self.klass(self.ctx, {})
         task.find_repo()
         m_fetch_repo.assert_called_once_with(repo, 'master')
 
@@ -540,7 +532,7 @@ class TestCephLabTask(TestAnsibleTask):
         fake_playbook_obj = StringIO(yaml.safe_dump(fake_playbook))
         playbook = 'cephlab.yml'
         fake_playbook_obj.name = playbook
-        task = self.klass(self.ctx, dict())
+        task = self.klass(self.ctx, {})
         task.repo_path = '/tmp/fake/repo'
         self.mocks['file'].return_value = fake_playbook_obj
         task.get_playbook()
@@ -572,7 +564,7 @@ class TestCephLabTask(TestAnsibleTask):
         ))
         self.mocks['mkdtemp'].return_value = '/inventory/dir'
         task = self.klass(self.ctx, self.task_config)
-        task.ctx.summary = dict()
+        task.ctx.summary = {}
         task.setup()
         with patch.object(ansible.pexpect, 'run') as m_run:
             with patch('teuthology.task.ansible.open') as m_open:

@@ -32,7 +32,7 @@ class Timer(object):
                 "When providing sync=True, a path must be specified!")
         self.path = path
         self.sync = sync
-        self.marks = list()
+        self.marks = []
         self.start_time = None
         self.start_string = None
 
@@ -92,19 +92,15 @@ class Timer(object):
         'start' and 'end' times are in UTC.
         """
         if not self.start_string:
-            return dict()
-        if len(self.marks) <= 1:
-            end_interval = 0
-        else:
-            end_interval = self.marks[-1]['interval']
+            return {}
+        end_interval = 0 if len(self.marks) <= 1 else self.marks[-1]['interval']
         end_time = self.start_time + end_interval
-        result = dict(
+        return dict(
             start=self.start_string,
             marks=self.marks,
             end=self.get_datetime_string(end_time),
             elapsed=end_interval,
         )
-        return result
 
     def write(self):
         try:

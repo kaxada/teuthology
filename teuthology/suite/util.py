@@ -60,8 +60,7 @@ def schedule_fail(message, name=''):
     If an email address has been specified anywhere, send an alert there. Then
     raise a ScheduleFailError.
     """
-    email = config.results_email
-    if email:
+    if email := config.results_email:
         subject = "Failed to schedule {name}".format(name=name)
         msg = MIMEText(message)
         msg['Subject'] = subject
@@ -82,10 +81,7 @@ def get_worker(machine_type):
     multiple machine types - e.g. 'plana,mira', then this returns 'multi'.
     Otherwise it returns what was passed.
     """
-    if ',' in machine_type:
-        return 'multi'
-    else:
-        return machine_type
+    return 'multi' if ',' in machine_type else machine_type
 
 
 def get_gitbuilder_hash(project=None, branch=None, flavor=None,
@@ -207,17 +203,12 @@ def git_validate_sha1(project, sha1, project_owner='ceph'):
         url = '/'.join((url, 'commit', sha1))
     elif '/git.ceph.com/' in url:
         # kinda specific to knowing git.ceph.com is gitweb
-        url = ('http://git.ceph.com/?p=%s.git;a=blob_plain;f=.gitignore;hb=%s'
-               % (project, sha1))
+        url = f'http://git.ceph.com/?p={project}.git;a=blob_plain;f=.gitignore;hb={sha1}'
     else:
-        raise RuntimeError(
-            'git_validate_sha1: how do I check %s for a sha1?' % url
-        )
+        raise RuntimeError(f'git_validate_sha1: how do I check {url} for a sha1?')
 
     resp = requests.head(url)
-    if resp.ok:
-        return sha1
-    return None
+    return sha1 if resp.ok else None
 
 
 def git_branch_exists(project_or_url, branch, project_owner='ceph'):
@@ -276,7 +267,7 @@ def package_version_for_hash(hash, flavor='default', distro='rhel',
     )
 
     if bp.distro == CONTAINER_DISTRO and bp.flavor == CONTAINER_FLAVOR:
-        log.info('container build %s, checking for build_complete' % bp.distro)
+        log.info(f'container build {bp.distro}, checking for build_complete')
         if not bp.build_complete:
             log.info('build not complete')
             return None
@@ -291,11 +282,12 @@ def get_arch(machine_type):
 
     :returns: A string or None
     """
-    result = teuthology.lock.query.list_locks(machine_type=machine_type, count=1)
-    if not result:
-        log.warning("No machines found with machine_type %s!", machine_type)
-    else:
+    if result := teuthology.lock.query.list_locks(
+        machine_type=machine_type, count=1
+    ):
         return result[0]['arch']
+    else:
+        log.warning("No machines found with machine_type %s!", machine_type)
 
 
 def strip_fragment_path(original_path):
@@ -318,15 +310,18 @@ def get_install_task_flavor(job_config):
     Only looks at the first instance of the install task in job_config.
     """
     project, = job_config.get('project', 'ceph'),
-    tasks = job_config.get('tasks', dict())
-    overrides = job_config.get('overrides', dict())
-    install_overrides = overrides.get('install', dict())
-    project_overrides = install_overrides.get(project, dict())
-    first_install_config = dict()
-    for task in tasks:
-        if list(task.keys())[0] == 'install':
-            first_install_config = list(task.values())[0] or dict()
-            break
+    tasks = job_config.get('tasks', {})
+    overrides = job_config.get('overrides', {})
+    install_overrides = overrides.get('install', {})
+    project_overrides = install_overrides.get(project, {})
+    first_install_config = next(
+        (
+            list(task.values())[0] or {}
+            for task in tasks
+            if list(task.keys())[0] == 'install'
+        ),
+        {},
+    )
     first_install_config = copy.deepcopy(first_install_config)
     deep_merge(first_install_config, install_overrides)
     deep_merge(first_install_config, project_overrides)
@@ -378,13 +373,13 @@ def get_package_versions(sha1, os_type, os_version, flavor,
                              hash/distro/ver.
     """
     if package_versions is None:
-        package_versions = dict()
+        package_versions = {}
 
     os_type = str(os_type)
 
-    os_types = package_versions.get(sha1, dict())
-    os_versions = os_types.get(os_type, dict())
-    flavors = os_versions.get(os_version, dict())
+    os_types = package_versions.get(sha1, {})
+    os_versions = os_types.get(os_type, {})
+    flavors = os_versions.get(os_version, {})
     if flavor not in flavors:
         package_version = package_version_for_hash(
             sha1,
@@ -421,9 +416,7 @@ def has_packages_for_distro(sha1, os_type, os_version, flavor,
         package_versions = get_package_versions(
             sha1, os_type, os_version, flavor)
 
-    flavors = package_versions.get(sha1, dict()).get(
-            os_type, dict()).get(
-            os_version, dict())
+    flavors = package_versions.get(sha1, {}).get(os_type, {}).get(os_version, {})
     # we want to return a boolean here, not the actual package versions
     return bool(flavors.get(flavor, None))
 
@@ -448,14 +441,14 @@ def teuthology_schedule(args, verbose, dry_run, log_prefix=''):
         printable_args = []
         for item in args:
             if ' ' in item:
-                printable_args.append("'%s'" % item)
+                printable_args.append(f"'{item}'")
             else:
                 printable_args.append(item)
         log.info('{0}{1}'.format(
             log_prefix,
             ' '.join(printable_args),
         ))
-    if not dry_run or (dry_run and verbose > 1):
+    if not dry_run or verbose > 1:
         subprocess.check_call(args=args)
 
 
@@ -467,15 +460,20 @@ def find_git_parent(project, sha1):
         return None
 
     def refresh(project):
-        url = '%s/%s.git/refresh' % (base_url, project)
+        url = f'{base_url}/{project}.git/refresh'
         resp = requests.get(url)
         if not resp.ok:
             log.error('git refresh failed for %s: %s',
                       project, resp.content.decode())
 
     def get_sha1s(project, committish, count):
-        url = '/'.join((base_url, '%s.git' % project,
-                       'history/?committish=%s&count=%d' % (committish, count)))
+        url = '/'.join(
+            (
+                base_url,
+                f'{project}.git',
+                'history/?committish=%s&count=%d' % (committish, count),
+            )
+        )
         resp = requests.get(url)
         resp.raise_for_status()
         sha1s = resp.json()['sha1s']
@@ -489,10 +487,7 @@ def find_git_parent(project, sha1):
     refresh(project)
     # we want the one just before sha1; list two, return the second
     sha1s = get_sha1s(project, sha1, 2)
-    if len(sha1s) == 2:
-        return sha1s[1]
-    else:
-        return None
+    return sha1s[1] if len(sha1s) == 2 else None
 
 
 def filter_configs(configs, suite_name=None,
@@ -518,10 +513,10 @@ def filter_configs(configs, suite_name=None,
         def matches(f):
             if f in description:
                 return True
-            if filter_fragments and \
-                    any(f in path for path in base_frag_paths):
-                return True
-            return False
+            return bool(
+                filter_fragments and any(f in path for path in base_frag_paths)
+            )
+
         if filter_all:
             if not all(matches(f) for f in filter_all):
                 continue

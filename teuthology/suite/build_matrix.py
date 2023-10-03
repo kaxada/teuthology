@@ -49,10 +49,7 @@ def build_matrix(path, subset=None, seed=None):
     :param seed:        The seed for repeatable random test
     """
     if subset:
-        log.info(
-            'Subset=%s/%s' %
-            (str(subset[0]), str(subset[1]))
-        )
+        log.info(f'Subset={str(subset[0])}/{str(subset[1])}')
     random.seed(seed)
     mat, first, matlimit = _get_matrix(path, subset)
     return generate_combinations(path, mat, first, matlimit)
@@ -66,7 +63,7 @@ def _get_matrix(path, subset=None):
         (index, outof) = subset
         mat = _build_matrix(path, mincyclicity=outof)
         first = (mat.size() // outof) * index
-        if index == outof or index == outof - 1:
+        if index in [outof, outof - 1]:
             matlimit = mat.size()
         else:
             matlimit = (mat.size() // outof) * (index + 1)
@@ -81,21 +78,19 @@ def _build_matrix(path, mincyclicity=0, item=''):
     if os.path.basename(path)[0] == '.':
         return None
     if not os.path.exists(path):
-        raise IOError('%s does not exist (abs %s)' % (path, os.path.abspath(path)))
+        raise IOError(f'{path} does not exist (abs {os.path.abspath(path)})')
     if os.path.isfile(path):
-        if path.endswith('.yaml'):
-            return matrix.Base(item)
-        return None
+        return matrix.Base(item) if path.endswith('.yaml') else None
     if os.path.isdir(path):
         if path.endswith('.disable'):
             return None
         files = sorted(os.listdir(path))
         if len(files) == 0:
             return None
+        submats = []
         if '+' in files:
             # concatenate items
             files.remove('+')
-            submats = []
             for fn in sorted(files):
                 submat = _build_matrix(
                     os.path.join(path, fn),
@@ -110,7 +105,6 @@ def _build_matrix(path, mincyclicity=0, item=''):
                 files.remove('$')
             if '%' in files:
                 files.remove('%')
-            submats = []
             for fn in sorted(files):
                 submat = _build_matrix(
                     os.path.join(path, fn),
@@ -122,7 +116,6 @@ def _build_matrix(path, mincyclicity=0, item=''):
         elif '%' in files:
             # convolve items
             files.remove('%')
-            submats = []
             for fn in sorted(files):
                 submat = _build_matrix(
                     os.path.join(path, fn),
@@ -137,8 +130,6 @@ def _build_matrix(path, mincyclicity=0, item=''):
                 )
             return mat
         else:
-            # list items
-            submats = []
             for fn in sorted(files):
                 submat = _build_matrix(
                     os.path.join(path, fn),
@@ -153,7 +144,7 @@ def _build_matrix(path, mincyclicity=0, item=''):
                         submat)
                 submats.append(submat)
             return matrix.Sum(item, submats)
-    assert False, "Invalid path %s seen in _build_matrix" % path
+    assert False, f"Invalid path {path} seen in _build_matrix"
     return None
 
 
@@ -194,6 +185,4 @@ def combine_path(left, right):
     """
     os.path.join(a, b) doesn't like it when b is None
     """
-    if right:
-        return os.path.join(left, right)
-    return left
+    return os.path.join(left, right) if right else left

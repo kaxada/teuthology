@@ -34,10 +34,7 @@ def grep(path, expr):
     p = subprocess.Popen(["grep", expr, path], stdout=subprocess.PIPE)
     p.wait()
     out, err = p.communicate()
-    if p.returncode == 0:
-        return six.ensure_str(out).split("\n")
-    else:
-        return []
+    return six.ensure_str(out).split("\n") if p.returncode == 0 else []
 
 
 class GenericReason(Reason):
@@ -59,11 +56,10 @@ class GenericReason(Reason):
     def get_description(self):
         if self.description:
             return self.description
+        if self.backtrace:
+            return "Crash: {0}".format(self.failure_reason)
         else:
-            if self.backtrace:
-                return "Crash: {0}".format(self.failure_reason)
-            else:
-                return "Failure: {0}".format(self.failure_reason)
+            return "Failure: {0}".format(self.failure_reason)
 
     def match(self, job):
         # I never match dead jobs
@@ -99,21 +95,14 @@ class RegexReason(Reason):
 
     def __init__(self, regexes, description):
         self.description = description
-        if isinstance(regexes, list):
-            self.regexes = regexes
-        else:
-            self.regexes = [regexes]
+        self.regexes = regexes if isinstance(regexes, list) else [regexes]
 
     def match(self, job):
         # I never match dead jobs
         if job.get_failure_reason() is None:
             return False
 
-        for regex in self.regexes:
-            if re.match(regex, job.get_failure_reason()):
-                return True
-
-        return False
+        return any(re.match(regex, job.get_failure_reason()) for regex in self.regexes)
 
 
 class AssertionReason(Reason):
@@ -191,14 +180,13 @@ class DeadReason(Reason):
             return False
 
         if self.backtrace:
-            if job.get_backtrace():
-                # We both have backtrace: use that to decide if we're the same
-                ratio = difflib.SequenceMatcher(None, self.backtrace, job.get_backtrace()).ratio()
-                return ratio > 0.5
-            else:
+            if not job.get_backtrace():
                 # I have BT but he doesn't, so we're different
                 return False
 
+            # We both have backtrace: use that to decide if we're the same
+            ratio = difflib.SequenceMatcher(None, self.backtrace, job.get_backtrace()).ratio()
+            return ratio > 0.5
         if self.last_tlog_line or job.get_last_tlog_line():
             ratio = difflib.SequenceMatcher(None, self.last_tlog_line,
                                             job.get_last_tlog_line()).ratio()
@@ -277,24 +265,17 @@ class Job(object):
         self.populated = False
 
     def get_success(self):
-        if self.summary_data:
-            return self.summary_data['success']
-        else:
-            return False
+        return self.summary_data['success'] if self.summary_data else False
 
     def get_failure_reason(self):
-        if self.summary_data:
-            return self.summary_data['failure_reason']
-        else:
-            return None
+        return self.summary_data['failure_reason'] if self.summary_data else None
 
     def get_last_tlog_line(self):
         t_path = os.path.join(self.path, "teuthology.log")
         if not os.path.exists(t_path):
             return None
-        else:
-            out, err = subprocess.Popen(["tail", "-n", "1", t_path], stdout=subprocess.PIPE).communicate()
-            return out.strip()
+        out, err = subprocess.Popen(["tail", "-n", "1", t_path], stdout=subprocess.PIPE).communicate()
+        return out.strip()
 
     def _search_backtrace(self, file_obj):
         bt_lines = []
@@ -320,9 +301,11 @@ class Job(object):
                 # We're in a backtrace, push the line onto the list
                 if len(bt_lines) > MAX_BT_LINES:
                     # Something wrong with our parsing, drop it
-                    log.warning("Ignoring malparsed backtrace: {0}".format(
-                        ", ".join(bt_lines[0:3])
-                    ))
+                    log.warning(
+                        "Ignoring malparsed backtrace: {0}".format(
+                            ", ".join(bt_lines[:3])
+                        )
+                    )
                     bt_lines = []
                 bt_lines.append(line)
 
@@ -368,12 +351,11 @@ class Job(object):
             try:
                 s = os.stat(gzipped_log_path)
             except OSError as e:
-                if e.errno == ENOENT:
-                    log.warning("Missing log {0}".format(gzipped_log_path))
-                    continue
-                else:
+                if e.errno != ENOENT:
                     raise
 
+                log.warning("Missing log {0}".format(gzipped_log_path))
+                continue
             size = s.st_size
             if size > MAX_SVC_LOG:
                 log.warning("Not checking for backtrace from {0}:{1}.{2} log, too large ({3})".format(
@@ -418,9 +400,10 @@ class ValgrindReason(Reason):
         return dict(result)
 
     def get_description(self):
-        desc_bits = []
-        for service, types in list(self.service_types.items()):
-            desc_bits.append("{0} ({1})".format(service, ", ".join(types)))
+        desc_bits = [
+            "{0} ({1})".format(service, ", ".join(types))
+            for service, types in list(self.service_types.items())
+        ]
         return "Valgrind: " + ", ".join(desc_bits)
 
     @classmethod
@@ -499,8 +482,7 @@ class Scraper(object):
         for reason, jobs in list(reasons.items()):
             job_spec = "{0} jobs: {1}".format(len(jobs), [j.job_id for j in jobs]) if len(jobs) < 30 else "{0} jobs".format(len(jobs))
             log.info(reason.get_description())
-            detail = reason.get_detail()
-            if detail:
+            if detail := reason.get_detail():
                 log.info(detail)
             log.info(job_spec)
             suites = [set(j.description.split()) for j in jobs if j.description != None]

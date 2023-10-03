@@ -52,10 +52,10 @@ def task(ctx, config):
             "task lockfile got invalid config"
 
         log.info("building executable on each host")
-        buildprocs = list()
+        buildprocs = []
         # build the locker executable on each client
-        clients = list()
-        files = list()
+        clients = []
+        files = []
         for op in config:
             if not isinstance(op, dict):
                 continue
@@ -63,14 +63,14 @@ def task(ctx, config):
             log.info("op['client'] = %s", op['client'])
             clients.append(op['client'])
             files.append(op['lockfile'])
-            if not "expectfail" in op:
+            if "expectfail" not in op:
                 op["expectfail"] = False
             badconfig = False
-            if not "client" in op:
+            if "client" not in op:
                 badconfig = True
-            if not "lockfile" in op:
+            if "lockfile" not in op:
                 badconfig = True
-            if not "holdtime" in op:
+            if "holdtime" not in op:
                 badconfig = True
             if badconfig:
                 raise KeyError("bad config {op_}".format(op_=op))
@@ -78,7 +78,7 @@ def task(ctx, config):
         testdir = teuthology.get_testdir(ctx)
         clients = set(clients)
         files = set(files)
-        lock_procs = list()
+        lock_procs = []
         for client in clients:
             (client_remote,) = ctx.cluster.only(client).remotes.keys()
             log.info("got a client remote")
@@ -115,7 +115,7 @@ def task(ctx, config):
         clients.add(client)
         (client_remote,) = ctx.cluster.only(client).remotes.keys()
         (_, _, client_id) = client.partition('.')
-        file_procs = list()
+        file_procs = []
         for lockfile in files:
             filepath = os.path.join(testdir, 'mnt.{id}'.format(id=client_id), lockfile)
             proc = client_remote.run(
@@ -129,7 +129,7 @@ def task(ctx, config):
                 )
             file_procs.append(proc)
         run.wait(file_procs)
-        file_procs = list()
+        file_procs = []
         for lockfile in files:
             filepath = os.path.join(testdir, 'mnt.{id}'.format(id=client_id), lockfile)
             proc = client_remote.run(
@@ -146,7 +146,7 @@ def task(ctx, config):
         # now actually run the locktests
         for op in config:
             if not isinstance(op, dict):
-                assert isinstance(op, int) or isinstance(op, float)
+                assert isinstance(op, (int, float))
                 log.info("sleeping for {sleep} seconds".format(sleep=op))
                 time.sleep(op)
                 continue
@@ -160,7 +160,7 @@ def task(ctx, config):
             result = greenlet.get()
             if not result:
                 raise Exception("Got wrong result for op {op_}".format(op_=op))
-        # for (greenlet, op) in lock_procs
+            # for (greenlet, op) in lock_procs
 
     finally:
         #cleanup!
@@ -236,6 +236,6 @@ def lock_one(op, ctx):
         if proc is not None:
             proc.stdin.close()
 
-    ret = (result == 0 and not bool(op["expectfail"])) or (result == 1 and bool(op["expectfail"]))
-
-    return ret  #we made it through
+    return (result == 0 and not bool(op["expectfail"])) or (
+        result == 1 and bool(op["expectfail"])
+    )

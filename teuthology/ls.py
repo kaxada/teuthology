@@ -43,24 +43,24 @@ def get_jobs(archive_dir):
     dir_contents = os.listdir(archive_dir)
 
     def is_job_dir(parent, subdir):
-        if (os.path.isdir(os.path.join(parent, subdir)) and re.match('\d+$',
-                                                                     subdir)):
-            return True
-        return False
+        return bool(
+            (
+                os.path.isdir(os.path.join(parent, subdir))
+                and re.match('\d+$', subdir)
+            )
+        )
 
     jobs = [job for job in dir_contents if is_job_dir(archive_dir, job)]
     return sorted(jobs)
 
 
 def print_debug_info(job, job_dir, archive_dir):
-    print('%s      ' % job, end='')
+    print(f'{job}      ', end='')
 
     try:
         log_path = os.path.join(archive_dir, job, 'teuthology.log')
         if os.path.exists(log_path):
-            tail = os.popen(
-                'tail -1 %s' % log_path
-            ).read().rstrip()
+            tail = os.popen(f'tail -1 {log_path}').read().rstrip()
             print(tail, end='')
         else:
             print('<no teuthology.log yet>', end='')

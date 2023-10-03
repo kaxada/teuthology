@@ -5,8 +5,7 @@ import collections
 
 
 def init_logging():
-    log = logging.getLogger(__name__)
-    return log
+    return logging.getLogger(__name__)
 
 log = init_logging()
 
@@ -27,21 +26,18 @@ class YamlConfig(collections.MutableMapping):
         if self.yaml_path:
             self.load()
         else:
-            self._conf = dict()
+            self._conf = {}
 
     def load(self, conf=None):
         if conf:
-            if isinstance(conf, dict):
-                self._conf = conf
-            else:
-                self._conf = yaml.safe_load(conf)
+            self._conf = conf if isinstance(conf, dict) else yaml.safe_load(conf)
             return
         if os.path.exists(self.yaml_path):
             with open(self.yaml_path) as f:
                 self._conf = yaml.safe_load(f)
         else:
             log.debug("%s not found", self.yaml_path)
-            self._conf = dict()
+            self._conf = {}
 
     def update(self, in_dict):
         """
@@ -194,16 +190,17 @@ class TeuthologyConfig(YamlConfig):
         super(TeuthologyConfig, self).__init__(yaml_path or self.yaml_path)
 
     def get_ceph_cm_ansible_git_url(self):
-        return (self.ceph_cm_ansible_git_url or
-                self.ceph_git_base_url + 'ceph-cm-ansible.git')
+        return (
+            self.ceph_cm_ansible_git_url
+            or f'{self.ceph_git_base_url}ceph-cm-ansible.git'
+        )
 
     def get_ceph_qa_suite_git_url(self):
         return (self.ceph_qa_suite_git_url or
                 self.get_ceph_git_url())
 
     def get_ceph_git_url(self):
-        return (self.ceph_git_url or
-                self.ceph_git_base_url + 'ceph-ci.git')
+        return self.ceph_git_url or f'{self.ceph_git_base_url}ceph-ci.git'
 
 
 class JobConfig(YamlConfig):
@@ -219,7 +216,7 @@ class FakeNamespace(YamlConfig):
     """
     def __init__(self, config_dict=None):
         if not config_dict:
-            config_dict = dict()
+            config_dict = {}
         self._conf = self._clean_config(config_dict)
         set_config_attr(self)
 
@@ -229,7 +226,7 @@ class FakeNamespace(YamlConfig):
         example the "--" prefix of a docopt dict isn't valid and won't populate
         correctly.
         """
-        result = dict()
+        result = {}
         for key, value in config_dict.items():
             new_key = key
             if new_key.startswith("--"):

@@ -20,17 +20,14 @@ class SystemDState(DaemonState):
 
     @property
     def daemon_type(self):
-        if self.type_ == 'rgw':
-            return 'radosgw'
-        return self.type_
+        return 'radosgw' if self.type_ == 'rgw' else self.type_
 
     def _get_systemd_cmd(self, action):
-        cmd = systemd_cmd_templ.format(
+        return systemd_cmd_templ.format(
             action=action,
-            daemon='%s-%s' % (self.cluster, self.daemon_type),
+            daemon=f'{self.cluster}-{self.daemon_type}',
             id_=self.id_.replace('client.', ''),
         )
-        return cmd
 
     def _set_commands(self):
         self.start_cmd = self._get_systemd_cmd('start')
@@ -38,13 +35,13 @@ class SystemDState(DaemonState):
         self.restart_cmd = self._get_systemd_cmd('restart')
         self.show_cmd = self._get_systemd_cmd('show')
         self.status_cmd = self._get_systemd_cmd('status')
-        cluster_and_type = '%s-%s' % (self.cluster, self.daemon_type)
+        cluster_and_type = f'{self.cluster}-{self.daemon_type}'
         if self.type_ == self.daemon_type:
             syslog_id = cluster_and_type
         else:
             syslog_id = self.daemon_type
         self.output_cmd = 'sudo journalctl -u ' \
-            '{0}@{1} -t {2} -n 10'.format(
+                '{0}@{1} -t {2} -n 10'.format(
                 cluster_and_type,
                 self.id_.replace('client.', ''),
                 syslog_id,
@@ -58,13 +55,13 @@ class SystemDState(DaemonState):
         :raises:  CommandFailedError, if the process was run with
                   check_status=True
         """
-        output = self.remote.sh(self.show_cmd + ' | grep -i state')
+        output = self.remote.sh(f'{self.show_cmd} | grep -i state')
 
         def parse_line(line):
             key, value = line.strip().split('=', 1)
             return {key.strip(): value.strip()}
 
-        show_dict = dict()
+        show_dict = {}
 
         for line in output.split('\n'):
             # skip empty and commented string
@@ -77,14 +74,7 @@ class SystemDState(DaemonState):
         if active_state == 'active':
             return None
         self.log.info("State is: %s/%s", active_state, sub_state)
-        out = self.remote.sh(
-            # This will match a line like:
-            #    Main PID: 13394 (code=exited, status=1/FAILURE)
-            # Or (this is wrapped):
-            #    Apr 26 21:29:33 ovh083 systemd[1]: ceph-osd@1.service:
-            #    Main process exited, code=exited, status=1/FAILURE
-            self.status_cmd + " | grep 'Main.*code=exited'",
-        )
+        out = self.remote.sh(f"{self.status_cmd} | grep 'Main.*code=exited'")
         line = out.strip().split('\n')[-1]
         exit_code = int(re.match('.*status=(\d+).*', line).groups()[0])
         if exit_code:
@@ -103,16 +93,16 @@ class SystemDState(DaemonState):
         """
         Method to retrieve daemon process id
         """
-        proc_name = 'ceph-%s' % self.type_
+        proc_name = f'ceph-{self.type_}'
 
         # process regex to match OSD, MON, MGR, MDS process command string
         # eg. "/usr/bin/ceph-<daemon-type> -f --cluster ceph --id <daemon-id>"
-        proc_regex = '"%s.*--id %s "' % (proc_name, self.id_)
+        proc_regex = f'"{proc_name}.*--id {self.id_} "'
 
         # process regex to match RADOSGW process command string
         # eg. "/usr/bin/radosgw -f --cluster ceph --name <daemon-id=self.id_>"
         if self.type_ == "rgw":
-            proc_regex = '"{}.*--name.*{}"'.format(self.daemon_type, self.id_)
+            proc_regex = f'"{self.daemon_type}.*--name.*{self.id_}"'
 
         args = ['ps', '-ef',
                 run.Raw('|'),
@@ -124,9 +114,7 @@ class SystemDState(DaemonState):
                 'awk',
                 run.Raw("{'print $2'}")]
         pid_string = self.remote.sh(args).strip()
-        if not pid_string.isdigit():
-            return None
-        return int(pid_string)
+        return None if not pid_string.isdigit() else int(pid_string)
 
     def reset(self):
         """
@@ -167,12 +155,7 @@ class SystemDState(DaemonState):
         :return: The PID if remote run command value is set, False otherwise.
         """
         pid = self.pid
-        if pid is None:
-            return None
-        elif pid <= 0:
-            return None
-        else:
-            return pid
+        return None if pid is None or pid <= 0 else pid
 
     def signal(self, sig, silent=False):
         """
@@ -183,7 +166,7 @@ class SystemDState(DaemonState):
         self.log.warning("systemd may restart daemons automatically")
         pid = self.pid
         self.log.info("Sending signal %s to process %s", sig, pid)
-        sig = '-' + str(sig)
+        sig = f'-{str(sig)}'
         self.remote.run(args=['sudo', 'kill', str(sig), str(pid)])
 
     def start(self, timeout=300):

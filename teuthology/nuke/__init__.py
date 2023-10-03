@@ -98,7 +98,7 @@ def stale_openstack_instances(ctx, instances, locked_nodes):
 
 
 def openstack_delete_volume(id):
-    OpenStack().run("volume delete " + id + " || true")
+    OpenStack().run(f"volume delete {id} || true")
 
 
 def stale_openstack_volumes(ctx, volumes):
@@ -131,11 +131,11 @@ def stale_openstack_volumes(ctx, volumes):
             if not ctx.dry_run:
                 openstack_delete_volume(volume_id)
             continue
-        log.debug("stale-openstack: volume " + volume_id + " OK")
+        log.debug(f"stale-openstack: volume {volume_id} OK")
 
 
 def stale_openstack_nodes(ctx, instances, locked_nodes):
-    names = set([ i['Name'] for i in instances.values() ])
+    names = {i['Name'] for i in instances.values()}
     for (name, node) in locked_nodes.items():
         name = decanonicalize_hostname(name)
         if node['machine_type'] != 'openstack':
@@ -152,7 +152,7 @@ def stale_openstack_nodes(ctx, instances, locked_nodes):
             if not ctx.dry_run:
                 unlock_one(ctx, name, node['locked_by'])
             continue
-        log.debug("stale-openstack: node " + name + " OK")
+        log.debug(f"stale-openstack: node {name} OK")
 
 
 def openstack_remove_again():
@@ -170,7 +170,7 @@ def openstack_remove_again():
     remove_me = [openstack_volume_id(v) for v in volumes
                  if 'REMOVE-ME' in openstack_volume_name(v)]
     for i in remove_me:
-        log.info("Trying to remove stale volume %s" % i)
+        log.info(f"Trying to remove stale volume {i}")
         openstack_delete_volume(i)
 
 
@@ -181,28 +181,26 @@ def main(args):
 
     info = {}
     if ctx.archive:
-        ctx.config = config_file(ctx.archive + '/config.yaml')
+        ctx.config = config_file(f'{ctx.archive}/config.yaml')
         ifn = os.path.join(ctx.archive, 'info.yaml')
         if os.path.exists(ifn):
             with open(ifn, 'r') as fd:
                 info = yaml.safe_load(fd.read())
         if not ctx.pid:
             ctx.pid = info.get('pid')
-            if not ctx.pid:
-                ctx.pid = int(open(ctx.archive + '/pid').read().rstrip('\n'))
+        if not ctx.pid:
+            ctx.pid = int(open(f'{ctx.archive}/pid').read().rstrip('\n'))
         if not ctx.owner:
             ctx.owner = info.get('owner')
-            if not ctx.owner:
-                ctx.owner = open(ctx.archive + '/owner').read().rstrip('\n')
+        if not ctx.owner:
+            ctx.owner = open(f'{ctx.archive}/owner').read().rstrip('\n')
 
     if ctx.targets:
         ctx.config = merge_configs(ctx.targets)
 
     if ctx.stale:
         stale_nodes = find_stale_locks(ctx.owner)
-        targets = dict()
-        for node in stale_nodes:
-            targets[node['name']] = node['ssh_pub_key']
+        targets = {node['name']: node['ssh_pub_key'] for node in stale_nodes}
         ctx.config = dict(targets=targets)
 
     if ctx.stale_openstack:
@@ -296,7 +294,7 @@ def nuke_one(ctx, target, should_unlock, synch_clocks,
     try:
         nuke_helper(ctx, should_unlock, keep_logs, should_reboot)
     except Exception:
-        log.exception('Could not nuke %s' % target)
+        log.exception(f'Could not nuke {target}')
         # not re-raising the so that parallel calls aren't killed
         ret = target
     else:
@@ -313,7 +311,7 @@ def nuke_helper(ctx, should_unlock, keep_logs, should_reboot):
     if should_unlock:
         if is_vm(shortname):
             return
-    log.debug('shortname: %s' % shortname)
+    log.debug(f'shortname: {shortname}')
     remote = Remote(host)
     if ctx.check_locks:
         # does not check to ensure if the node is 'up'

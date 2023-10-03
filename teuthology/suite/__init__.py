@@ -26,15 +26,14 @@ def override_arg_defaults(name, default, env=os.environ):
         '--ceph-branch'       : 'TEUTH_CEPH_BRANCH',
         '--suite-branch'      : 'TEUTH_SUITE_BRANCH',
     }
-    if name in env_arg and env_arg[name] in env.keys():
-        variable = env_arg[name]
-        value = env[variable]
-        log.debug("Default value for '{arg}' is overridden "
-                  "from environment with: {val}"
-                  .format(arg=name, val=value))
-        return value
-    else:
+    if name not in env_arg or env_arg[name] not in env.keys():
         return default
+    variable = env_arg[name]
+    value = env[variable]
+    log.debug("Default value for '{arg}' is overridden "
+              "from environment with: {val}"
+              .format(arg=name, val=value))
+    return value
 
 
 def process_args(args):
@@ -63,10 +62,7 @@ def process_args(args):
             # take input string '2/3' and turn into (2, 3)
             value = tuple(map(int, value.split('/')))
         elif key in ('filter_all', 'filter_in', 'filter_out', 'rerun_statuses'):
-            if not value:
-                value = []
-            else:
-                value = [x.strip() for x in value.split(',')]
+            value = [] if not value else [x.strip() for x in value.split(',')]
         elif key == 'ceph_repo':
             value = expand_short_repo_name(
                 value,
@@ -122,7 +118,7 @@ def main(args):
         config.results_email = conf.email
     if conf.archive_upload:
         config.archive_upload = conf.archive_upload
-        log.info('Will upload archives to ' + conf.archive_upload)
+        log.info(f'Will upload archives to {conf.archive_upload}')
 
     if conf.rerun:
         rerun_filters = get_rerun_filters(conf.rerun, conf.rerun_statuses)
@@ -150,14 +146,13 @@ def main(args):
 def get_rerun_filters(name, statuses):
     reporter = ResultsReporter()
     run = reporter.get_run(name)
-    filters = dict()
-    filters['suite'] = run['suite']
-    jobs = []
-    for job in run['jobs']:
-        if job['status'] in statuses:
-            jobs.append(job)
-    filters['descriptions'] = [job['description'] for job in jobs if job['description']]
-    return filters
+    jobs = [job for job in run['jobs'] if job['status'] in statuses]
+    return {
+        'suite': run['suite'],
+        'descriptions': [
+            job['description'] for job in jobs if job['description']
+        ],
+    }
 
 
 def get_rerun_conf(conf):
@@ -192,12 +187,13 @@ class WaitException(Exception):
 def wait(name, max_job_time, upload_url):
     stale_job = max_job_time + Run.WAIT_MAX_JOB_TIME
     reporter = ResultsReporter()
-    past_unfinished_jobs = []
     progress = time.time()
     log.info(f"waiting for the run {name} to complete")
-    log.debug("the list of unfinished jobs will be displayed "
-              "every " + str(Run.WAIT_PAUSE / 60) + " minutes")
+    log.debug(
+        f"the list of unfinished jobs will be displayed every {str(Run.WAIT_PAUSE / 60)} minutes"
+    )
     exit_code = 0
+    past_unfinished_jobs = []
     while True:
         jobs = reporter.get_jobs(name, fields=['job_id', 'status'])
         unfinished_jobs = []
@@ -206,20 +202,20 @@ def wait(name, max_job_time, upload_url):
                 unfinished_jobs.append(job)
             elif job['status'] != 'pass':
                 exit_code = 1
-        if len(unfinished_jobs) == 0:
+        if not unfinished_jobs:
             log.info("wait is done")
             break
         if (len(past_unfinished_jobs) == len(unfinished_jobs) and
                 time.time() - progress > stale_job):
             raise WaitException(
-                "no progress since " + str(config.max_job_time) +
-                " + " + str(Run.WAIT_PAUSE) + " seconds")
+                f"no progress since {str(config.max_job_time)} + {str(Run.WAIT_PAUSE)} seconds"
+            )
         if len(past_unfinished_jobs) != len(unfinished_jobs):
             past_unfinished_jobs = unfinished_jobs
             progress = time.time()
         time.sleep(Run.WAIT_PAUSE)
         job_ids = [job['job_id'] for job in unfinished_jobs]
-        log.debug('wait for jobs ' + str(job_ids))
+        log.debug(f'wait for jobs {job_ids}')
     jobs = reporter.get_jobs(name, fields=['job_id', 'status',
                                            'description', 'log_href'])
     # dead, fail, pass : show fail/dead jobs first

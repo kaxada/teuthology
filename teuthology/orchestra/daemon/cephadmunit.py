@@ -17,14 +17,17 @@ class CephadmUnit(DaemonState):
             self._start_logger()
 
     def name(self):
-        return '%s.%s' % (self.type_, self.id_)
+        return f'{self.type_}.{self.id_}'
 
     def _get_systemd_cmd(self, action):
-        return ' '.join([
-            'sudo', 'systemctl',
-            action,
-            'ceph-%s@%s.%s' % (self.fsid, self.type_, self.id_),
-        ])
+        return ' '.join(
+            [
+                'sudo',
+                'systemctl',
+                action,
+                f'ceph-{self.fsid}@{self.type_}.{self.id_}',
+            ]
+        )
 
     def _set_commands(self):
         self.start_cmd = self._get_systemd_cmd('start')
@@ -34,40 +37,56 @@ class CephadmUnit(DaemonState):
         self.status_cmd = self._get_systemd_cmd('status')
 
     def kill_cmd(self, sig):
-        return ' '.join([
-            'sudo', 'docker', 'kill',
-            '-s', str(int(sig)),
-            'ceph-%s-%s.%s' % (self.fsid, self.type_, self.id_),
-        ])
+        return ' '.join(
+            [
+                'sudo',
+                'docker',
+                'kill',
+                '-s',
+                str(int(sig)),
+                f'ceph-{self.fsid}-{self.type_}.{self.id_}',
+            ]
+        )
 
     def _start_logger(self):
-        name = '%s.%s' % (self.type_, self.id_)
+        name = f'{self.type_}.{self.id_}'
         #self.log.info('_start_logger %s' % name)
         self.remote_logger = self.remote.run(
-            args=['sudo', 'journalctl',
-                  '-f',
-                  '-n', '0',
-                  '-u',
-                  'ceph-%s@%s.service' % (self.fsid, name)
+            args=[
+                'sudo',
+                'journalctl',
+                '-f',
+                '-n',
+                '0',
+                '-u',
+                f'ceph-{self.fsid}@{name}.service',
             ],
-            logger=logging.getLogger('journalctl@' + self.cluster + '.' + name),
+            logger=logging.getLogger(f'journalctl@{self.cluster}.{name}'),
             label=name,
             wait=False,
             check_status=False,
         )
 
     def _stop_logger(self):
-        name = '%s.%s' % (self.type_, self.id_)
+        name = f'{self.type_}.{self.id_}'
         # this is a horrible kludge, since i don't know how else to kill
         # the journalctl process at the other end :(
         #self.log.info('_stop_logger %s running pkill' % name)
         self.remote.run(
-            args=['sudo', 'pkill', '-f',
-                  ' '.join(['journalctl',
-                            '-f',
-                            '-n', '0',
-                            '-u',
-                            'ceph-%s@%s.service' % (self.fsid, name)]),
+            args=[
+                'sudo',
+                'pkill',
+                '-f',
+                ' '.join(
+                    [
+                        'journalctl',
+                        '-f',
+                        '-n',
+                        '0',
+                        '-u',
+                        f'ceph-{self.fsid}@{name}.service',
+                    ]
+                ),
             ],
             check_status=False,
         )
@@ -95,7 +114,7 @@ class CephadmUnit(DaemonState):
             self.remote.sh(self.start_cmd)
             self.is_started = True
         else:
-            self.log.info('Restarting %s...' % self.name())
+            self.log.info(f'Restarting {self.name()}...')
             self.remote.sh(self.restart_cmd)
 
     def restart_with_args(self, extra_args):
@@ -150,11 +169,11 @@ class CephadmUnit(DaemonState):
         if not self.running():
             self.log.error('Tried to stop a non-running daemon')
             return
-        self.log.info('Stopping %s...' % self.name())
+        self.log.info(f'Stopping {self.name()}...')
         self.remote.sh(self.stop_cmd)
         self.is_started = False
         self._stop_logger()
-        self.log.info('Stopped %s' % self.name())
+        self.log.info(f'Stopped {self.name()}')
 
     # FIXME why are there two wait methods?
     def wait(self, timeout=300):
@@ -164,11 +183,11 @@ class CephadmUnit(DaemonState):
         Wait for daemon to stop (but don't trigger the stop).  Pass up
         any exception.  Mark the daemon as not running.
         """
-        self.log.info('Waiting for %s to exit...' % self.name())
+        self.log.info(f'Waiting for {self.name()} to exit...')
         self.remote.sh(self.stop_cmd)
         self.is_started = False
         self._stop_logger()
-        self.log.info('Finished waiting for %s to stop' % self.name())
+        self.log.info(f'Finished waiting for {self.name()} to stop')
 
     def wait_for_exit(self):
         """

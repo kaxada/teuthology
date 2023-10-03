@@ -33,12 +33,12 @@ class CephMetrics(Ansible):
             'clients': 'client',
             'ceph-grafana': 'cephmetrics',
         }
-        hosts_dict = dict()
+        hosts_dict = {}
         for group in sorted(groups_to_roles.keys()):
             role_prefix = groups_to_roles[group]
             want = lambda role: role.startswith(role_prefix)
             if group not in hosts_dict:
-                hosts_dict[group] = dict(hosts=dict())
+                hosts_dict[group] = dict(hosts={})
             group_dict = hosts_dict[group]['hosts']
             for (remote, roles) in self.cluster.only(want).remotes.items():
                 hostname = remote.hostname
@@ -53,8 +53,8 @@ class CephMetrics(Ansible):
         # hosts_str = yaml.safe_dump(hosts_dict, default_flow_style=False)
         # And then pass suffix='.yml' to _write_hosts_file().
         hosts_lines = []
-        for group in hosts_dict.keys():
-            hosts_lines.append('[%s]' % group)
+        for group in hosts_dict:
+            hosts_lines.append(f'[{group}]')
             for host, vars_ in hosts_dict[group]['hosts'].items():
                 host_line = ' '.join(
                     [host] + map(
@@ -80,7 +80,7 @@ class CephMetrics(Ansible):
 
     def run_tests(self):
         self.log.info("Running tests...")
-        command = "tox -e integration %s" % self.inventory
+        command = f"tox -e integration {self.inventory}"
         out, status = pexpect.run(
             command,
             cwd=self.repo_path,

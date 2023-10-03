@@ -9,14 +9,14 @@ from teuthology.task.selinux import SELinux
 class TestSELinux(object):
     def setup(self):
         self.ctx = FakeNamespace()
-        self.ctx.config = dict()
+        self.ctx.config = {}
 
     def test_host_exclusion(self):
         with patch.multiple(
-            Remote,
-            os=DEFAULT,
-            run=DEFAULT,
-        ):
+                Remote,
+                os=DEFAULT,
+                run=DEFAULT,
+            ):
             self.ctx.cluster = Cluster()
             remote1 = Remote('remote1')
             remote1.os = Mock()
@@ -28,7 +28,7 @@ class TestSELinux(object):
             remote2.os.package_type = 'deb'
             remote2._is_vm = False
             self.ctx.cluster.add(remote2, ['role2'])
-            task_config = dict()
+            task_config = {}
             with SELinux(self.ctx, task_config) as task:
                 remotes = list(task.cluster.remotes)
                 assert remotes == [remote1]

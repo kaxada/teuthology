@@ -88,9 +88,9 @@ class TestPhysicalConsole(TestConsole):
 
     def test_spawn_log_conserver(self):
         with patch(
-            'teuthology.orchestra.console.psutil.subprocess.Popen',
-            autospec=True,
-        ) as m_popen:
+                'teuthology.orchestra.console.psutil.subprocess.Popen',
+                autospec=True,
+            ) as m_popen:
             m_popen.return_value.pid = 42
             m_popen.return_value.returncode = 0
             m_popen.return_value.wait.return_value = 0
@@ -101,15 +101,13 @@ class TestPhysicalConsole(TestConsole):
             cons.spawn_sol_log('/fake/path')
             assert m_popen.call_count == 1
             call_args = m_popen.call_args_list[0][0][0]
-            assert any(
-                [teuth_config.conserver_master in arg for arg in call_args]
-            )
+            assert any(teuth_config.conserver_master in arg for arg in call_args)
 
     def test_spawn_log_ipmi(self):
         with patch(
-            'teuthology.orchestra.console.psutil.subprocess.Popen',
-            autospec=True,
-        ) as m_popen:
+                'teuthology.orchestra.console.psutil.subprocess.Popen',
+                autospec=True,
+            ) as m_popen:
             m_popen.return_value.pid = 42
             m_popen.return_value.returncode = 1
             m_popen.return_value.wait.return_value = 1
@@ -120,15 +118,13 @@ class TestPhysicalConsole(TestConsole):
             cons.spawn_sol_log('/fake/path')
             assert m_popen.call_count == 1
             call_args = m_popen.call_args_list[0][0][0]
-            assert any(
-                ['ipmitool' in arg for arg in call_args]
-            )
+            assert any('ipmitool' in arg for arg in call_args)
 
     def test_spawn_log_fallback(self):
         with patch(
-            'teuthology.orchestra.console.psutil.subprocess.Popen',
-            autospec=True,
-        ) as m_popen:
+                'teuthology.orchestra.console.psutil.subprocess.Popen',
+                autospec=True,
+            ) as m_popen:
             m_popen.return_value.pid = 42
             m_popen.return_value.returncode = 0
             m_popen.return_value.wait.return_value = 0
@@ -140,9 +136,7 @@ class TestPhysicalConsole(TestConsole):
             assert cons.has_conserver is False
             assert m_popen.call_count == 2
             call_args = m_popen.call_args_list[1][0][0]
-            assert any(
-                ['ipmitool' in arg for arg in call_args]
-            )
+            assert any('ipmitool' in arg for arg in call_args)
 
     def test_get_console_conserver(self):
         with patch(
@@ -193,15 +187,15 @@ class TestPhysicalConsole(TestConsole):
             cons = self.klass(self.hostname)
         assert cons.has_conserver is True
         with patch(
-            'teuthology.orchestra.console.pexpect.spawn',
-            autospec=True,
-        ) as m_spawn:
+                'teuthology.orchestra.console.pexpect.spawn',
+                autospec=True,
+            ) as m_spawn:
             cons.has_conserver = True
             m_spawn.return_value.isalive.return_value = False
             cons._get_console()
             assert m_spawn.return_value.isalive.call_count == 1
             assert m_spawn.call_count == 2
-            assert cons.has_conserver is False
+            assert not cons.has_conserver
             assert 'ipmitool' in m_spawn.call_args_list[1][0][0]
 
     def test_disable_conserver(self):

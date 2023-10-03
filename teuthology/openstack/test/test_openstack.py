@@ -44,14 +44,14 @@ class TestOpenStackBase(object):
         OpenStack.token = None
         OpenStack.token_expires = None
         self.environ = {}
-        for k in os.environ.keys():
+        for k in os.environ:
             if k.startswith('OS_'):
                 self.environ[k] = os.environ[k]
 
     def teardown(self):
         OpenStack.token = None
         OpenStack.token_expires = None
-        for k in os.environ.keys():
+        for k in os.environ:
             if k.startswith('OS_'):
                 if k in self.environ:
                     os.environ[k] = self.environ[k]
@@ -131,7 +131,7 @@ class TestOpenStackInstance(TestOpenStackBase):
     """
 
     @classmethod
-    def setup_class(self):
+    def setup_class(cls):
         if 'OS_AUTH_URL' not in os.environ:
             pytest.skip('no OS_AUTH_URL environment variable')
 
@@ -227,7 +227,8 @@ class TestOpenStackInstance(TestOpenStackBase):
                 """.replace('{instance_id}', instance_id).
                         replace('{ip}', ip))
             else:
-                raise Exception("unexpected " + cmd)
+                raise Exception(f"unexpected {cmd}")
+
         with patch.multiple(
                 misc,
                 sh=sh,
@@ -1278,7 +1279,7 @@ class TestOpenStack(TestOpenStackBase):
     ]"""
 
     @classmethod
-    def setup_class(self):
+    def setup_class(cls):
         if 'OS_AUTH_URL' not in os.environ:
             pytest.skip('no OS_AUTH_URL environment variable')
 
@@ -1513,9 +1514,9 @@ class TestOpenStack(TestOpenStackBase):
         os.environ['OS_TENANT_ID'] = 'TENANT'
         for (type, cmds) in type2cmd.items():
             for cmd in cmds:
-                assert ("//" + type) in o.get_os_url(cmd + " ")
-        for type in type2cmd.keys():
-            assert ("//" + type) in o.get_os_url("whatever ", type=type)
+                assert f"//{type}" in o.get_os_url(f"{cmd} ")
+        for type in type2cmd:
+            assert f"//{type}" in o.get_os_url("whatever ", type=type)
 
     @patch('teuthology.misc.sh')
     def test_cache_token(self, m_sh):
@@ -1583,20 +1584,19 @@ class TestOpenStack(TestOpenStackBase):
 class TestTeuthologyOpenStack(TestOpenStackBase):
 
     @classmethod
-    def setup_class(self):
+    def setup_class(cls):
         if 'OS_AUTH_URL' not in os.environ:
             pytest.skip('no OS_AUTH_URL environment variable')
 
         teuthology.log.setLevel(logging.DEBUG)
         set_config_attr(argparse.Namespace())
 
-        ip = TeuthologyOpenStack.create_floating_ip()
-        if ip:
+        if ip := TeuthologyOpenStack.create_floating_ip():
             ip_id = TeuthologyOpenStack.get_floating_ip_id(ip)
-            OpenStack().run("ip floating delete " + ip_id)
-            self.can_create_floating_ips = True
+            OpenStack().run(f"ip floating delete {ip_id}")
+            cls.can_create_floating_ips = True
         else:
-            self.can_create_floating_ips = False
+            cls.can_create_floating_ips = False
 
     def setup(self):
         super(TestTeuthologyOpenStack, self).setup()
@@ -1668,8 +1668,8 @@ openstack keypair delete {key_name} || true
         assert 0 == teuthology.ssh("grep 'substituded variables' /var/log/cloud-init.log")
         l = caplog.text
         assert 'Ubuntu 14.04' in l
-        assert "nworkers=" + str(args.simultaneous_jobs) in l
-        assert "username=" + teuthology.username in l
+        assert f"nworkers={str(args.simultaneous_jobs)}" in l
+        assert f"username={teuthology.username}" in l
         assert "upload=--archive-upload user@archive:/tmp" in l
         assert ("ceph_workbench="
                 " --ceph-workbench-branch CEPH_WORKBENCH_BRANCH"
@@ -1682,7 +1682,7 @@ openstack keypair delete {key_name} || true
             ip = teuthology.get_floating_ip(self.name)
         teuthology.teardown()
         if self.can_create_floating_ips:
-            assert teuthology.get_floating_ip_id(ip) == None
+            assert teuthology.get_floating_ip_id(ip) is None
 
     def test_floating_ip(self):
         if not self.can_create_floating_ips:
@@ -1692,4 +1692,4 @@ openstack keypair delete {key_name} || true
         ip = TeuthologyOpenStack.get_unassociated_floating_ip()
         assert expected == ip
         ip_id = TeuthologyOpenStack.get_floating_ip_id(ip)
-        OpenStack().run("ip floating delete " + ip_id)
+        OpenStack().run(f"ip floating delete {ip_id}")

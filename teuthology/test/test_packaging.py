@@ -142,7 +142,7 @@ class TestPackaging(object):
         m_proc.stdout.getvalue.return_value = str(expected)
         m_remote = Mock()
         m_remote.run.return_value = m_proc
-        result = packaging.get_koji_build_info(1, m_remote, dict())
+        result = packaging.get_koji_build_info(1, m_remote, {})
         assert result == expected
         args, kwargs = m_remote.run.call_args
         expected_args = [
@@ -161,7 +161,7 @@ class TestPackaging(object):
         m_remote = Mock()
         m_remote.run.return_value = m_proc
         m_ctx = Mock()
-        m_ctx.summary = dict()
+        m_ctx.summary = {}
         with pytest.raises(RuntimeError):
             packaging.get_koji_build_info(1, m_remote, m_ctx)
 
@@ -174,7 +174,7 @@ class TestPackaging(object):
         m_proc.stdout.getvalue.return_value = str(expected)
         m_remote = Mock()
         m_remote.run.return_value = m_proc
-        result = packaging.get_koji_task_result(1, m_remote, dict())
+        result = packaging.get_koji_task_result(1, m_remote, {})
         assert result == expected
         args, kwargs = m_remote.run.call_args
         expected_args = [
@@ -193,7 +193,7 @@ class TestPackaging(object):
         m_remote = Mock()
         m_remote.run.return_value = m_proc
         m_ctx = Mock()
-        m_ctx.summary = dict()
+        m_ctx.summary = {}
         with pytest.raises(RuntimeError):
             packaging.get_koji_task_result(1, m_remote, m_ctx)
 

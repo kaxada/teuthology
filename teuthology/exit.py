@@ -12,7 +12,7 @@ class Exiter(object):
     given signal
     """
     def __init__(self):
-        self.handlers = list()
+        self.handlers = []
 
     def add_handler(self, signals, func):
         """

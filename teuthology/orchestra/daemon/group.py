@@ -36,7 +36,7 @@ class DaemonGroup(object):
         # we can only get optional args from unused kwargs entries
         self.register_daemon(remote, type_, id_, *args, **kwargs)
         cluster = kwargs.pop('cluster', 'ceph')
-        role = cluster + '.' + type_
+        role = f'{cluster}.{type_}'
         self.daemons[role][id_].restart()
 
     def register_daemon(self, remote, type_, id_, *args, **kwargs):
@@ -53,7 +53,7 @@ class DaemonGroup(object):
         # for backwards compatibility with older ceph-qa-suite branches,
         # we can only get optional args from unused kwargs entries
         cluster = kwargs.pop('cluster', 'ceph')
-        role = cluster + '.' + type_
+        role = f'{cluster}.{type_}'
         if role not in self.daemons:
             self.daemons[role] = {}
         if id_ in self.daemons[role]:
@@ -64,9 +64,11 @@ class DaemonGroup(object):
         if self.use_cephadm:
             klass = CephadmUnit
             kwargs['use_cephadm'] = self.use_cephadm
-        elif self.use_systemd and \
-             not any(i == 'valgrind' for i in args) and \
-             remote.init_system == 'systemd':
+        elif (
+            self.use_systemd
+            and 'valgrind' not in args
+            and remote.init_system == 'systemd'
+        ):
             # We currently cannot use systemd and valgrind together because
             # it would require rewriting the unit files
             klass = SystemDState
@@ -80,10 +82,8 @@ class DaemonGroup(object):
         :param type_: type of daemon (osd, mds, mon, rgw,  for example)
         :param id_: Id (index into role dictionary)
         """
-        role = cluster + '.' + type_
-        if role not in self.daemons:
-            return None
-        return self.daemons[role].get(str(id_), None)
+        role = f'{cluster}.{type_}'
+        return self.daemons[role].get(str(id_), None) if role in self.daemons else None
 
     def iter_daemons_of_role(self, type_, cluster='ceph'):
         """
@@ -92,7 +92,7 @@ class DaemonGroup(object):
 
         :param type_: type of daemon (osd, mds, mon, rgw,  for example)
         """
-        role = cluster + '.' + type_
+        role = f'{cluster}.{type_}'
         return self.daemons.get(role, {}).values()
 
     def resolve_role_list(self, roles, types, cluster_aware=False):
@@ -143,13 +143,13 @@ class DaemonGroup(object):
             # Handle default: all roles available
             for type_ in types:
                 for role, daemons in self.daemons.items():
-                    if not role.endswith('.' + type_):
+                    if not role.endswith(f'.{type_}'):
                         continue
                     for daemon in daemons.values():
                         prefix = type_
                         if cluster_aware:
                             prefix = daemon.role
-                        resolved.append(prefix + '.' + daemon.id_)
+                        resolved.append(f'{prefix}.{daemon.id_}')
         else:
             # Handle explicit list of roles or wildcards
             for raw_role in roles:
@@ -172,7 +172,7 @@ class DaemonGroup(object):
                         prefix = role_type
                         if cluster_aware:
                             prefix = daemon.role
-                        resolved.append(prefix + '.' + daemon.id_)
+                        resolved.append(f'{prefix}.{daemon.id_}')
                 else:
                     # Handle explicit role
                     resolved.append(raw_role)

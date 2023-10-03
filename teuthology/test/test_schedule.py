@@ -41,5 +41,5 @@ class TestSchedule(object):
         args = self.basic_args
         args['--owner'] = None
         job_dict = build_config(self.basic_args)
-        assert job_dict['owner'] == 'scheduled_%s' % get_user()
+        assert job_dict['owner'] == f'scheduled_{get_user()}'
 

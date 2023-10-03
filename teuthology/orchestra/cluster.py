@@ -20,7 +20,7 @@ class Cluster(object):
                 self.add(remote, roles)
 
     def __repr__(self):
-        remotes = [(k, v) for k, v in self.remotes.items()]
+        remotes = list(self.remotes.items())
         remotes.sort(key=lambda tup: tup[0].name)
         remotes = '[' + ', '.join('[{remote!r}, {roles!r}]'.format(
             remote=k, roles=v) for k, v in remotes) + ']'
@@ -116,10 +116,10 @@ class Cluster(object):
             if sudo:
                 remote.write_file(file_name, content,
                                   sudo=True, mode=perms, owner=owner)
-            else:
-                if perms is not None or owner is not None:
-                    raise ValueError("To specify perms or owner, sudo must be True")
+            elif perms is None and owner is None:
                 remote.write_file(file_name, content)
+            else:
+                raise ValueError("To specify perms or owner, sudo must be True")
 
     def only(self, *roles):
         """

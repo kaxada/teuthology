@@ -7,8 +7,8 @@ def verify_matrix_output_diversity(res):
     outputs from res.index
     """
     sz = res.size()
-    s = frozenset([matrix.generate_lists(res.index(i)) for i in range(sz)])
-    for i in range(res.size()):
+    s = frozenset(matrix.generate_lists(res.index(i)) for i in range(sz))
+    for _ in range(res.size()):
         assert sz == len(s)
 
 

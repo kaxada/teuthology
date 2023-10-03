@@ -48,13 +48,13 @@ from teuthology.config import set_config_attr
 class Integration(object):
 
     @classmethod
-    def setup_class(self):
+    def setup_class(cls):
         teuthology.log.setLevel(logging.DEBUG)
         set_config_attr(argparse.Namespace())
-        self.teardown_class()
+        cls.teardown_class()
 
     @classmethod
-    def teardown_class(self):
+    def teardown_class(cls):
         os.system("sudo /etc/init.d/beanstalkd restart")
         # if this fails it will not show the error but some weird
         # INTERNALERROR> IndexError: list index out of range
@@ -69,9 +69,9 @@ class Integration(object):
                     "server delete --wait " + instance['ID'])
 
     def setup_worker(self):
-        self.logs = self.d + "/log"
+        self.logs = f"{self.d}/log"
         os.mkdir(self.logs, 0o755)
-        self.archive = self.d + "/archive"
+        self.archive = f"{self.d}/archive"
         os.mkdir(self.archive, 0o755)
         self.worker_cmd = ("teuthology-worker --tube openstack " +
                            "-l " + self.logs + " "
@@ -89,9 +89,9 @@ class Integration(object):
         (stdoutdata, stderrdata) = self.worker.communicate()
         stdoutdata = stdoutdata.decode('utf-8')
         stderrdata = stderrdata.decode('utf-8')
-        logging.info(self.worker_cmd + ":" +
-                     " stdout " + stdoutdata +
-                     " stderr " + stderrdata + " end ")
+        logging.info(
+            f"{self.worker_cmd}: stdout {stdoutdata} stderr {stderrdata} end "
+        )
         assert self.worker.returncode == 0
         self.worker = None
 
@@ -116,32 +116,42 @@ class TestSuite(Integration):
 
     def test_suite_noop(self):
         cwd = os.getcwd()
-        os.mkdir(self.d + '/upload', 0o755)
-        upload = 'localhost:' + self.d + '/upload'
-        args = ['--suite', 'noop',
-                '--suite-dir', cwd + '/teuthology/openstack/test',
-                '--machine-type', 'openstack',
-                '--archive-upload', upload,
-                '--verbose']
+        os.mkdir(f'{self.d}/upload', 0o755)
+        upload = f'localhost:{self.d}/upload'
+        args = [
+            '--suite',
+            'noop',
+            '--suite-dir',
+            f'{cwd}/teuthology/openstack/test',
+            '--machine-type',
+            'openstack',
+            '--archive-upload',
+            upload,
+            '--verbose',
+        ]
         logging.info("TestSuite:test_suite_noop")
         scripts.suite.main(args)
         self.wait_worker()
         log = self.get_teuthology_log()
         assert "teuthology.run:pass" in log
         assert "Well done" in log
-        upload_key = teuth_config.archive_upload_key
-        if upload_key:
-            ssh = "RSYNC_RSH='ssh -i " + upload_key + "'"
+        if upload_key := teuth_config.archive_upload_key:
+            ssh = f"RSYNC_RSH='ssh -i {upload_key}'"
         else:
             ssh = ''
-        assert 'teuthology.log' in teuthology.misc.sh(ssh + " rsync -av " + upload)
+        assert 'teuthology.log' in teuthology.misc.sh(f"{ssh} rsync -av {upload}")
 
     def test_suite_nuke(self):
         cwd = os.getcwd()
-        args = ['--suite', 'nuke',
-                '--suite-dir', cwd + '/teuthology/openstack/test',
-                '--machine-type', 'openstack',
-                '--verbose']
+        args = [
+            '--suite',
+            'nuke',
+            '--suite-dir',
+            f'{cwd}/teuthology/openstack/test',
+            '--machine-type',
+            'openstack',
+            '--verbose',
+        ]
         logging.info("TestSuite:test_suite_nuke")
         scripts.suite.main(args)
         self.wait_worker()
@@ -235,8 +245,9 @@ class TestLock(Integration):
         for image in images:
             (os_type, os_version, arch) = image.split('-')
             if arch not in default_archs:
-                logging.info("skipping " + image + " because arch " +
-                             " is not supported (" + str(default_archs) + ")")
+                logging.info(
+                    f"skipping {image} because arch  is not supported ({str(default_archs)})"
+                )
                 continue
             args = scripts.lock.parse_args(self.options +
                                            ['--lock-many', '1',
@@ -273,7 +284,7 @@ class TestNuke(Integration):
                                         '--os-version', os_version])
         assert teuthology.lock.cli.main(args) == 0
         locks = teuthology.lock.query.list_locks(locked=True)
-        logging.info('list_locks = ' + str(locks))
+        logging.info(f'list_locks = {str(locks)}')
         assert len(locks) == 1
         ctx = argparse.Namespace(name=None,
                                  config={

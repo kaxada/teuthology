@@ -17,6 +17,7 @@ Usage:
     daemon-helper <signal> [--kill-group] [nostdin] COMMAND ...
 """
 
+
 from __future__ import print_function
 
 import fcntl
@@ -37,9 +38,7 @@ parser.add_argument('--kill-group', action='store_true',
 parser.add_argument('--nostdin', action='store_true', 
                     help='no stdin input expected')
 parsed, args = parser.parse_known_args()
-end_signal = signal.SIGKILL
-if parsed.signal == 'term':
-    end_signal = signal.SIGTERM
+end_signal = signal.SIGTERM if parsed.signal == 'term' else signal.SIGKILL
 group = parsed.kill_group
 nostdin = parsed.nostdin
 skip_nostdin = 0
@@ -75,15 +74,7 @@ saw_eof = False
 while True:
     r,w,x = select.select([0], [], [0], 0.2)
     if r:
-        data = os.read(0, 1)
-        if not data:
-            saw_eof = True
-            if not group:
-                proc.send_signal(end_signal)
-            else:
-                os.killpg(proc.pid, end_signal)
-            break
-        else:
+        if data := os.read(0, 1):
             sig, = struct.unpack('!b', data)
             if not group:
                 proc.send_signal(sig)
@@ -91,6 +82,13 @@ while True:
                 os.killpg(proc.pid, end_signal)
 
 
+        else:
+            saw_eof = True
+            if not group:
+                proc.send_signal(end_signal)
+            else:
+                os.killpg(proc.pid, end_signal)
+            break
     if proc.poll() is not None:
         # child exited
         break
@@ -103,10 +101,7 @@ if exitstatus > 0:
         ), file=sys.stderr)
     sys.exit(exitstatus)
 elif exitstatus < 0:
-    if saw_eof and exitstatus == -end_signal:
-        # suppress error from the exit we intentionally caused
-        pass
-    else:
+    if not saw_eof or exitstatus != -end_signal:
         print('{me}: command crashed with signal {signal:d}'.format(
             me=os.path.basename(sys.argv[0]),
             signal=-exitstatus,

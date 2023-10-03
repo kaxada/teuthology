@@ -7,6 +7,5 @@ def assert_raises(excClass, callableObj, *args, **kwargs):
     except excClass as e:
         return e
     else:
-        if hasattr(excClass,'__name__'): excName = excClass.__name__
-        else: excName = str(excClass)
-        raise AssertionError("%s not raised" % excName)
+        excName = excClass.__name__ if hasattr(excClass,'__name__') else str(excClass)
+        raise AssertionError(f"{excName} not raised")

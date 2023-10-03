@@ -48,8 +48,8 @@ def syslog(ctx, config):
     ]
     conf_fp = BytesIO('\n'.join(conf_lines).encode())
     try:
+        log_context = 'system_u:object_r:var_log_t:s0'
         for rem in cluster.remotes.keys():
-            log_context = 'system_u:object_r:var_log_t:s0'
             for log_path in (kern_log, misc_log):
                 rem.run(args=['install', '-m', '666', '/dev/null', log_path])
                 rem.chcon(log_path, log_context)
@@ -78,7 +78,7 @@ def syslog(ctx, config):
         cluster = ctx.cluster.filter(lambda r: not r.is_container)
         if not len(cluster.remotes.keys()):
             return
-        
+
         log.info('Shutting down syslog monitoring...')
 
         run.wait(

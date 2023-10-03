@@ -24,34 +24,14 @@ def test_get_user_ssh_pubkey(path, exists):
                 m_open.assert_called_once_with(path)
 
 
-@mark.parametrize(
-    'input_, func, expected',
-    [
-        [
+@mark.parametrize('input_, func, expected', [[
             [
                 dict(sub0=dict(key0=0, key1=0)),
                 dict(sub0=dict(key1=1, key2=2)),
             ],
             lambda x, y: x > y,
             dict(sub0=dict(key0=0, key1=1, key2=2))
-        ],
-        [
-            [
-                dict(),
-                dict(sub0=dict(key1=1, key2=2)),
-            ],
-            lambda x, y: x > y,
-            dict(sub0=dict(key1=1, key2=2))
-        ],
-        [
-            [
-                dict(sub0=dict(key1=1, key2=2)),
-                dict(),
-            ],
-            lambda x, y: x > y,
-            dict(sub0=dict(key1=1, key2=2))
-        ],
-        [
+        ], [[{}, dict(sub0=dict(key1=1, key2=2))], lambda x, y: x > y, dict(sub0=dict(key1=1, key2=2))], [[dict(sub0=dict(key1=1, key2=2)), {}], lambda x, y: x > y, dict(sub0=dict(key1=1, key2=2))], [
             [
                 dict(sub0=dict(key0=0, key1=0, key2=0)),
                 dict(sub0=dict(key0=1, key2=3), sub1=dict(key0=0)),
@@ -62,9 +42,7 @@ def test_get_user_ssh_pubkey(path, exists):
             lambda x, y: x > y,
             dict(sub0=dict(key0=3, key1=3, key2=3),
                  sub1=dict(key0=3, key1=0))
-        ],
-    ]
-)
+        ]])
 def test_combine_dicts(input_, func, expected):
     assert util.combine_dicts(input_, func) == expected
 
@@ -89,17 +67,14 @@ class TestAuthToken(object):
             endpoint='endpoint',
             expires=default_expires,
         )
-        self.patchers = dict()
-        self.patchers['m_open'] = patch(
-            'teuthology.provision.cloud.util.open'
-        )
+        self.patchers = {'m_open': patch('teuthology.provision.cloud.util.open')}
         self.patchers['m_exists'] = patch(
             'os.path.exists'
         )
         self.patchers['m_file_lock'] = patch(
             'teuthology.provision.cloud.util.FileLock'
         )
-        self.mocks = dict()
+        self.mocks = {}
         for name, patcher in self.patchers.items():
             self.mocks[name] = patcher.start()
 

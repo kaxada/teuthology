@@ -60,7 +60,7 @@ def _run_spawned(ctx, config, taskname):
     """Run one of the tasks (this runs in parallel with others)"""
     mgr = {}
     try:
-        log.info('In parallel, running task %s...' % taskname)
+        log.info(f'In parallel, running task {taskname}...')
         mgr = run_tasks.run_one_task(taskname, ctx=ctx, config=config)
         if hasattr(mgr, '__enter__'):
             mgr.__enter__()

@@ -14,14 +14,14 @@ def dict_to_hadoop_conf(items):
     out = "<configuration>\n"
     for key, value in items.items():
         out += "  <property>\n"
-        out += "    <name>" + key + "</name>\n"
-        out += "    <value>" + value + "</value>\n"
+        out += f"    <name>{key}" + "</name>\n"
+        out += f"    <value>{value}" + "</value>\n"
         out += "  </property>\n"
     out += "</configuration>\n"
     return out
 
 def is_hadoop_type(type_):
-    return lambda role: role.startswith('hadoop.' + type_)
+    return lambda role: role.startswith(f'hadoop.{type_}')
 
 def get_slaves_data(ctx):
     tempdir = teuthology.get_testdir(ctx)
@@ -173,13 +173,8 @@ def configure(ctx, config, hadoops):
         assert len(masters.remotes) == 1
         master = next(iter(masters.remotes.keys()))
         master.run(
-            args = [
-                hadoop_dir + "bin/hadoop",
-                "namenode",
-                "-format"
-            ],
-            wait = True,
-            )
+            args=[f"{hadoop_dir}bin/hadoop", "namenode", "-format"], wait=True
+        )
 
 @contextlib.contextmanager
 def install_hadoop(ctx, config):
@@ -264,16 +259,16 @@ def install_hadoop(ctx, config):
 
         run.wait(
             hadoops.run(
-                args = [
+                args=[
                     'wget',
                     '-nv',
                     '-O',
-                    "{tdir}/cephfs-hadoop.jar".format(tdir=testdir), # FIXME
-                    url + "/cephfs-hadoop-0.80.6.jar", # FIXME
+                    "{tdir}/cephfs-hadoop.jar".format(tdir=testdir),
+                    f"{url}/cephfs-hadoop-0.80.6.jar",
                 ],
-                wait = False,
-                )
+                wait=False,
             )
+        )
 
         run.wait(
             hadoops.run(
@@ -343,36 +338,16 @@ def start_hadoop(ctx, config):
     master = next(iter(masters.remotes.keys()))
 
     log.info("Stopping Hadoop daemons")
-    master.run(
-        args = [
-            hadoop_dir + "sbin/stop-yarn.sh"
-        ],
-        wait = True,
-        )
+    master.run(args=[f"{hadoop_dir}sbin/stop-yarn.sh"], wait = True)
 
-    master.run(
-        args = [
-            hadoop_dir + "sbin/stop-dfs.sh"
-        ],
-        wait = True,
-        )
+    master.run(args=[f"{hadoop_dir}sbin/stop-dfs.sh"], wait = True)
 
     if config.get('hdfs', False):
         log.info("Starting HDFS...")
-        master.run(
-            args = [
-                hadoop_dir + "sbin/start-dfs.sh"
-            ],
-            wait = True,
-            )
+        master.run(args=[f"{hadoop_dir}sbin/start-dfs.sh"], wait = True)
 
     log.info("Starting YARN...")
-    master.run(
-        args = [
-            hadoop_dir + "sbin/start-yarn.sh"
-        ],
-        wait = True,
-        )
+    master.run(args=[f"{hadoop_dir}sbin/start-yarn.sh"], wait = True)
 
     try:
         yield
@@ -380,19 +355,9 @@ def start_hadoop(ctx, config):
     finally:
         log.info("Stopping Hadoop daemons")
 
-        master.run(
-            args = [
-                hadoop_dir + "sbin/stop-yarn.sh"
-                ],
-            wait = True,
-            )
+        master.run(args=[f"{hadoop_dir}sbin/stop-yarn.sh"], wait = True)
 
-        master.run(
-            args = [
-                hadoop_dir + "sbin/stop-dfs.sh"
-                ],
-            wait = True,
-            )
+        master.run(args=[f"{hadoop_dir}sbin/stop-dfs.sh"], wait = True)
 
         run.wait(
             ctx.cluster.run(

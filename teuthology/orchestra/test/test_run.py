@@ -20,9 +20,7 @@ def set_buffer_contents(buf, contents):
         buf.write(contents.encode())
     else:
         raise TypeError(
-            "%s is a %s; should be a byte string, list or tuple" % (
-                contents, type(contents)
-            )
+            f"{contents} is a {type(contents)}; should be a byte string, list or tuple"
         )
     buf.seek(0)
 

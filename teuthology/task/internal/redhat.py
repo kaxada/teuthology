@@ -46,21 +46,25 @@ def setup_stage_cdn(ctx, config):
 
 def _subscribe_stage_cdn(remote):
     _unsubscribe_stage_cdn(remote)
-    cdn_config = teuthconfig.get('cdn-config', dict())
+    cdn_config = teuthconfig.get('cdn-config', {})
     server_url = cdn_config.get('server-url', 'subscription.rhsm.stage.redhat.com:443/subscription')
     base_url = cdn_config.get('base-url', 'https://cdn.stage.redhat.com')
     username = cdn_config.get('username')
     password = cdn_config.get('password')
     remote.run(
         args=[
-            'sudo', 'subscription-manager', '--force', 'register',
-            run.Raw('--serverurl=' + server_url),
-            run.Raw('--baseurl=' + base_url),
-            run.Raw('--username=' + username),
-            run.Raw('--password=' + password),
-            '--auto-attach'
-            ],
-        timeout=720)
+            'sudo',
+            'subscription-manager',
+            '--force',
+            'register',
+            run.Raw(f'--serverurl={server_url}'),
+            run.Raw(f'--baseurl={base_url}'),
+            run.Raw(f'--username={username}'),
+            run.Raw(f'--password={password}'),
+            '--auto-attach',
+        ],
+        timeout=720,
+    )
     _enable_rhel_repos(remote)
 
 
@@ -100,7 +104,7 @@ def setup_container_registry(ctx, config):
         registry = ctx.config['redhat']['setup_container_registry']
 
         # fetch credentials from teuth_config
-        creds = teuthconfig.get('registries', dict()).get(registry)
+        creds = teuthconfig.get('registries', {}).get(registry)
         if not creds:
             raise ConfigError("Registry not found....")
 
@@ -142,8 +146,7 @@ def _enable_rhel_repos(remote):
 
     # Look for rh specific repos
     ds_yaml = os.path.join(
-        teuthconfig.get('ds_yaml_dir'),
-        teuthconfig.rhbuild + ".yaml"
+        teuthconfig.get('ds_yaml_dir'), f"{teuthconfig.rhbuild}.yaml"
     )
 
     rhel_repos = yaml.safe_load(open(ds_yaml))
@@ -207,8 +210,8 @@ def _setup_latest_repo(ctx, config):
                                )
                 base_url = config.get('base-repo-url', '')
                 installer_url = config.get('installer-repo-url', '')
-                repos = ['MON', 'OSD', 'Tools', 'Calamari', 'Installer']
                 installer_repos = ['Agent', 'Main', 'Installer']
+                repos = ['MON', 'OSD', 'Tools', 'Calamari', 'Installer']
                 if config.get('base-rh-repos'):
                     repos = ctx.config.get('base-rh-repos')
                 if config.get('installer-repos'):
@@ -233,17 +236,16 @@ def _setup_latest_repo(ctx, config):
                     remote.run(args=['sudo', 'yum', 'clean', 'metadata'])
                     if not remote.os.version.startswith('8'):
                         remote.run(args=['sudo', 'yum', 'update', 'metadata'])
-            else:
-                if config.get('deb-repo-url'):
-                    deb_repo = config.get('deb-repo-url')
-                    deb_gpg_key = config.get('deb-gpg-key', None)
-                    set_deb_repo(remote, deb_repo, deb_gpg_key)
+            elif config.get('deb-repo-url'):
+                deb_repo = config.get('deb-repo-url')
+                deb_gpg_key = config.get('deb-gpg-key', None)
+                set_deb_repo(remote, deb_repo, deb_gpg_key)
 
 
 def _get_repos_to_use(base_url, repos):
-    repod = dict()
+    repod = {}
     for repo in repos:
-        repo_to_use = base_url + "compose/" + repo + "/x86_64/os/"
+        repo_to_use = f"{base_url}compose/{repo}/x86_64/os/"
         r = requests.get(repo_to_use)
         log.info("Checking %s", repo_to_use)
         if r.status_code == 200:
@@ -253,12 +255,12 @@ def _get_repos_to_use(base_url, repos):
 
 
 def _create_temp_repo_file(repos, repo_file):
+    gpgcheck = "gpgcheck=0\n"
+    enabled = "enabled=1\n\n"
     for repo in repos.keys():
-        header = "[ceph-" + repo + "]" + "\n"
-        name = "name=ceph-" + repo + "\n"
-        baseurl = "baseurl=" + repos[repo] + "\n"
-        gpgcheck = "gpgcheck=0\n"
-        enabled = "enabled=1\n\n"
+        header = f"[ceph-{repo}]" + "\n"
+        name = f"name=ceph-{repo}" + "\n"
+        baseurl = f"baseurl={repos[repo]}" + "\n"
         repo_file.write(header)
         repo_file.write(name)
         repo_file.write(baseurl)

@@ -28,8 +28,8 @@ class TestBuildMatrix(object):
     ]
 
     def setup(self):
-        self.mocks = dict()
-        self.patchers = dict()
+        self.mocks = {}
+        self.patchers = {}
         for ppoint in self.__class__.patchpoints:
             self.mocks[ppoint] = MagicMock()
             self.patchers[ppoint] = patch(ppoint, self.mocks[ppoint])
@@ -586,8 +586,8 @@ class TestSubset(object):
     ]
 
     def setup(self):
-        self.mocks = dict()
-        self.patchers = dict()
+        self.mocks = {}
+        self.patchers = {}
         for ppoint in self.__class__.patchpoints:
             self.mocks[ppoint] = MagicMock()
             self.patchers[ppoint] = patch(ppoint, self.mocks[ppoint])
@@ -613,14 +613,16 @@ class TestSubset(object):
     @staticmethod
     def generate_fake_fs(max_facets, max_fanout, max_depth):
         def yamilify(name):
-            return name + ".yaml"
+            return f"{name}.yaml"
+
         def name_generator():
             x = 0
             while True:
                 yield(str(x))
                 x += 1
+
         def generate_tree(
-                max_facets, max_fanout, max_depth, namegen, top=True):
+                    max_facets, max_fanout, max_depth, namegen, top=True):
             if max_depth == 0:
                 return None
             if max_facets == 0:
@@ -637,13 +639,14 @@ class TestSubset(object):
                     sub_max_facets, max_fanout,
                     max_depth - 1, namegen, top=False)
                 if subtree is not None:
-                    tree['d' + next(namegen)] = subtree
+                    tree[f'd{next(namegen)}'] = subtree
                 else:
-                    tree[yamilify('f' + next(namegen))] = None
+                    tree[yamilify(f'f{next(namegen)}')] = None
             random.choice([
                 lambda: tree.update({'%': None}),
                 lambda: None])()
             return tree
+
         return {
             'root':  generate_tree(
                 max_facets, max_fanout, max_depth, name_generator())
@@ -668,8 +671,7 @@ class TestSubset(object):
                 if v is None and '.yaml' in k:
                     yield k
                 elif v is not None and '.disable' not in k:
-                    for x in flatten(v):
-                        yield x
+                    yield from flatten(v)
 
         def pptree(tree, tabs=0):
             ret = ""
@@ -677,14 +679,13 @@ class TestSubset(object):
                 if v is None:
                     ret += ('\t'*tabs) + k.ljust(10) + "\n"
                 else:
-                    ret += ('\t'*tabs) + (k + ':').ljust(10) + "\n"
+                    ret += '\t'*tabs + f'{k}:'.ljust(10) + "\n"
                     ret += pptree(v, tabs+1)
             return ret
+
         def deyamlify(name):
-            if name.endswith('.yaml'):
-                return name[:-5]
-            else:
-                return name
+            return name[:-5] if name.endswith('.yaml') else name
+
         for facet in (deyamlify(_) for _ in flatten(tree)):
             found = False
             for i in description_list:
@@ -712,7 +713,7 @@ class TestSubset(object):
             assert found
 
     def test_random(self):
-        for i in range(10000):
+        for _ in range(10000):
             tree = self.generate_fake_fs(
                 self.MAX_FACETS,
                 self.MAX_FANOUT,

@@ -8,7 +8,7 @@ class TestDownburst(object):
         self.ctx = Mock()
         self.ctx.os_type = 'rhel'
         self.ctx.os_version = '7.0'
-        self.ctx.config = dict()
+        self.ctx.config = {}
         self.name = 'vpm999'
         self.status = dict(
             vm_host=dict(name='host999'),

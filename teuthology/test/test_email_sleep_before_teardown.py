@@ -71,7 +71,7 @@ class TestSleepBeforeTeardownEmail(object):
                 success=False,
             )
         else:
-            ctx.summary = dict()
+            ctx.summary = {}
 
         ctx.owner   = owner
         ctx.name    = run_name

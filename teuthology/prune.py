@@ -51,16 +51,18 @@ def prune_archive(
         archive=archive_dir, count=len(os.listdir(archive_dir))))
     # Use full paths
     children = [os.path.join(archive_dir, p) for p in listdir(archive_dir)]
-    run_dirs = list()
-    for child in children:
-        # Ensure that the path is not a symlink, is a directory, and is old
-        # enough to process
-        if (not os.path.islink(child) and os.path.isdir(child) and
-                is_old_enough(child, min_days)):
-            run_dirs.append(child)
+    run_dirs = [
+        child
+        for child in children
+        if (
+            not os.path.islink(child)
+            and os.path.isdir(child)
+            and is_old_enough(child, min_days)
+        )
+    ]
     run_dirs.sort(key=lambda p: os.path.getctime(p), reverse=True)
     for run_dir in run_dirs:
-        log.debug("Processing %s ..." % run_dir)
+        log.debug(f"Processing {run_dir} ...")
         maybe_remove_jobs(run_dir, pass_days, fail_days, dry_run)
         maybe_remove_remotes(run_dir, remotes_days, dry_run)
         maybe_compress_logs(run_dir, compress_days, dry_run)
@@ -72,7 +74,7 @@ def listdir(path):
             try:
                 return os.listdir(path)
             except OSError:
-                log.exception("Failed to list %s !" % path)
+                log.exception(f"Failed to list {path} !")
 
 
 def should_preserve(dir_name):
@@ -83,9 +85,7 @@ def should_preserve(dir_name):
               otherwise
     """
     preserve_path = os.path.join(dir_name, PRESERVE_FILE)
-    if os.path.isdir(dir_name) and os.path.exists(preserve_path):
-        return True
-    return False
+    return bool(os.path.isdir(dir_name) and os.path.exists(preserve_path))
 
 
 def is_old_enough(file_name, days):
@@ -98,9 +98,7 @@ def is_old_enough(file_name, days):
     now = time.time()
     secs_to_days = lambda s: s / (60 * 60 * 24)
     age = now - os.path.getmtime(file_name)
-    if secs_to_days(age) > days:
-        return True
-    return False
+    return secs_to_days(age) > days
 
 
 def remove(path):
@@ -111,7 +109,7 @@ def remove(path):
     try:
         shutil.rmtree(path)
     except OSError:
-        log.exception("Failed to remove %s !" % path)
+        log.exception(f"Failed to remove {path} !")
 
 
 def maybe_remove_jobs(run_dir, pass_days, fail_days, dry_run=False):
@@ -217,7 +215,7 @@ def maybe_compress_logs(run_dir, days, dry_run=False):
         ))
         if dry_run:
             continue
-        zlog_path = log_path + '.gz'
+        zlog_path = f'{log_path}.gz'
         try:
             _compress(log_path, zlog_path)
         except Exception:

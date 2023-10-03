@@ -25,10 +25,7 @@ class TestFOG(object):
         self.start_patchers()
 
     def start_patchers(self):
-        self.patchers = dict()
-        self.patchers['m_sleep'] = patch(
-            'time.sleep',
-        )
+        self.patchers = {'m_sleep': patch('time.sleep')}
         self.patchers['m_requests_Session_send'] = patch(
             'requests.Session.send',
         )
@@ -50,7 +47,7 @@ class TestFOG(object):
             'teuthology.orchestra.remote.Remote.machine_type',
             new_callable=PropertyMock,
         )
-        self.mocks = dict()
+        self.mocks = {}
         for name, patcher in self.patchers.items():
             self.mocks[name] = patcher.start()
 
@@ -195,14 +192,14 @@ class TestFOG(object):
         tasktype_id = 6
         task_id = 5
         tasktype_result = dict(tasktypes=[dict(name='deploy', id=tasktype_id)])
-        schedule_result = dict()
+        schedule_result = {}
         host_tasks = [dict(
             createdTime=datetime.strftime(
                 datetime.utcnow(), self.klass.timestamp_format),
             id=task_id,
         )]
         self.mocks['m_requests_Session_send']\
-            .return_value.json.side_effect = [
+                .return_value.json.side_effect = [
             tasktype_result, schedule_result,
         ]
         with patch.multiple(
@@ -255,7 +252,7 @@ class TestFOG(object):
         [3, 61],
     )
     def test_wait_for_deploy_task(self, tries):
-        wait_results = [True for i in range(tries)] + [False]
+        wait_results = [True for _ in range(tries)] + [False]
         obj = self.klass('name.fqdn', 'type', '1.0')
         with patch.multiple(
             'teuthology.provision.fog.FOG',
@@ -268,7 +265,7 @@ class TestFOG(object):
                 return
             obj.wait_for_deploy_task(9)
             assert len(local_mocks['deploy_task_active'].call_args_list) == \
-                tries + 1
+                    tries + 1
 
     def test_cancel_deploy_task(self):
         obj = self.klass('name.fqdn', 'type', '1.0')
@@ -288,7 +285,7 @@ class TestFOG(object):
         [1, 101],
     )
     def test_wait_for_ready_tries(self, tries):
-        connect_results = [MaxWhileTries for i in range(tries)] + [True]
+        connect_results = [MaxWhileTries for _ in range(tries)] + [True]
         obj = self.klass('name.fqdn', 'type', '1.0')
         self.mocks['m_Remote_connect'].side_effect = connect_results
         if tries >= 100:

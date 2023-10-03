@@ -85,7 +85,7 @@ class SELinux(Task):
         """
 
         log.debug("Getting current SELinux state")
-        modes = dict()
+        modes = {}
         for remote in self.cluster.remotes.keys():
             result = remote.run(
                 args=['/usr/sbin/getenforce'],
@@ -102,7 +102,7 @@ class SELinux(Task):
         log.info("Putting SELinux into %s mode", self.mode)
         for remote in self.cluster.remotes.keys():
             mode = self.old_modes[remote.name]
-            if mode == "Disabled" or mode == "disabled":
+            if mode in ["Disabled", "disabled"]:
                 continue
             remote.run(
                 args=['sudo', '/usr/sbin/setenforce', self.mode],
@@ -112,7 +112,7 @@ class SELinux(Task):
         """
         Look for denials in the audit log
         """
-        all_denials = dict()
+        all_denials = {}
         # dmidecode issue:
         #  https://bugzilla.redhat.com/show_bug.cgi?id=1289274
         # tracker for chronyd/cephtest issue:
@@ -138,8 +138,7 @@ class SELinux(Task):
             'comm="sss_cache"',
             'context=system_u:system_r:NetworkManager_dispatcher_t:s0',
         ]
-        se_whitelist = self.config.get('whitelist', [])
-        if se_whitelist:
+        if se_whitelist := self.config.get('whitelist', []):
             known_denials.extend(se_whitelist)
         ignore_known_denials = '\'\(' + str.join('\|', known_denials) + '\)\''
         for remote in self.cluster.remotes.keys():
@@ -150,8 +149,7 @@ class SELinux(Task):
                 stdout=StringIO(),
                 check_status=False,
             )
-            output = proc.stdout.getvalue()
-            if output:
+            if output := proc.stdout.getvalue():
                 denials = output.strip().split('\n')
                 log.debug("%s has %s denials", remote.name, len(denials))
             else:
@@ -169,12 +167,12 @@ class SELinux(Task):
         If necessary, restore previous SELinux modes
         """
         # If there's nothing to do, skip this
-        if not set(self.old_modes.values()).difference(set([self.mode])):
+        if not set(self.old_modes.values()).difference({self.mode}):
             return
         log.info("Restoring old SELinux modes")
         for remote in self.cluster.remotes.keys():
             mode = self.old_modes[remote.name]
-            if mode == "Disabled" or mode == "disabled":
+            if mode in ["Disabled", "disabled"]:
                 continue
             if mode != self.mode:
                 remote.run(
@@ -200,7 +198,7 @@ class SELinux(Task):
         Determine if there are any new denials in the audit log
         """
         all_denials = self.get_denials()
-        new_denials = dict()
+        new_denials = {}
         for remote in self.cluster.remotes.keys():
             old_host_denials = self.old_denials[remote.name]
             all_host_denials = all_denials[remote.name]

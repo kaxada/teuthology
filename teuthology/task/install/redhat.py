@@ -50,7 +50,7 @@ def install(ctx, config):
         raise FileNotFoundError(f'Downstream rh version yaml file missing: {ds_yaml}')
     log.info("using yaml path %s", ds_yaml)
     downstream_config = yaml.safe_load(open(ds_yaml))
-    rh_versions = downstream_config.get('versions', dict()).get('supported', [])
+    rh_versions = downstream_config.get('versions', {}).get('supported', [])
     external_config = dict(extra_system_packages=config.get('extra_system_packages'),
                            extra_packages=config.get('extra_packages'),
                            )
@@ -153,7 +153,7 @@ def set_deb_repo(remote, deb_repo, deb_gpg_key=None):
     if deb_gpg_key is not None:
         ds_keys.append(deb_gpg_key)
     for key in ds_keys:
-        wget_cmd = 'wget -O - ' + key
+        wget_cmd = f'wget -O - {key}'
         remote.run(args=['sudo', run.Raw(wget_cmd),
                          run.Raw('|'), 'sudo', 'apt-key', 'add', run.Raw('-')])
     remote.run(args=['sudo', 'apt-get', 'update'])
@@ -207,11 +207,8 @@ def uninstall_pkgs(ctx, remote, downstream_config):
     """
 
     if remote.os.name == 'rhel':
-        pkgs = downstream_config.get('pkgs').get('rpm')
-        if pkgs:
+        if pkgs := downstream_config.get('pkgs').get('rpm'):
             remote.sh(['sudo', 'yum', 'remove'] + pkgs + ['-y'])
-    else:
-        pkgs = downstream_config.get('pkgs').get('deb') 
-        if pkgs:
-            remote.sh(['sudo', 'apt-get', 'remove'] + pkgs + ['-y'])
+    elif pkgs := downstream_config.get('pkgs').get('deb'):
+        remote.sh(['sudo', 'apt-get', 'remove'] + pkgs + ['-y'])
     remote.run(args=['sudo', 'rm', '-rf', '/var/lib/ceph'])

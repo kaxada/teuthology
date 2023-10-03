@@ -69,10 +69,7 @@ def main(args):
     if archive_dir is None:
         archive_dir = teuth_config.archive_base
 
-    # setup logging for disoatcher in {log_dir}
-    loglevel = logging.INFO
-    if verbose:
-        loglevel = logging.DEBUG
+    loglevel = logging.DEBUG if verbose else logging.INFO
     log.setLevel(loglevel)
     log_file_path = os.path.join(log_dir, f"dispatcher.{tube}.{os.getpid()}")
     setup_log_file(log_file_path)
@@ -177,7 +174,7 @@ def main(args):
         except Exception:
             log.exception("Saw exception while trying to delete job")
 
-    returncodes = set([0])
+    returncodes = {0}
     for proc in job_procs:
         if proc.returncode is not None:
             returncodes.add(proc.returncode)

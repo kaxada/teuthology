@@ -23,7 +23,7 @@ def get_status(name):
                 return response.json()
     log.warning(
         "Failed to query lock server for status of {name}".format(name=name))
-    return dict()
+    return {}
 
 
 def get_statuses(machines):
@@ -31,12 +31,10 @@ def get_statuses(machines):
         statuses = []
         for machine in machines:
             machine = misc.canonicalize_hostname(machine)
-            status = get_status(machine)
-            if status:
+            if status := get_status(machine):
                 statuses.append(status)
             else:
-                log.error("Lockserver doesn't know about machine: %s" %
-                          machine)
+                log.error(f"Lockserver doesn't know about machine: {machine}")
     else:
         statuses = list_locks()
     return statuses
@@ -61,7 +59,7 @@ def list_locks(keyed_by_name=False, **kwargs):
     if kwargs:
         if 'machine_type' in kwargs:
             kwargs['machine_type'] = kwargs['machine_type'].replace(',','|')
-        uri += '?' + urlencode(kwargs)
+        uri += f'?{urlencode(kwargs)}'
     with safe_while(
             sleep=1, increment=0.5, action='list_locks') as proceed:
         while proceed():
@@ -72,12 +70,12 @@ def list_locks(keyed_by_name=False, **kwargs):
             except requests.ConnectionError:
                 log.exception("Could not contact lock server: %s, retrying...", config.lock_server)
     if response.ok:
-        if not keyed_by_name:
-            return response.json()
-        else:
+        if keyed_by_name:
             return {node['name']: node
                     for node in response.json()}
-    return dict()
+        else:
+            return response.json()
+    return {}
 
 
 def find_stale_locks(owner=None):
@@ -101,11 +99,14 @@ def find_stale_locks(owner=None):
         and are still locked" and the above is currently the best way to guess.
         """
         desc = node_dict['description']
-        if (node_dict['locked'] is True and
-            desc is not None and desc.startswith('/') and
-                desc.count('/') > 1):
-            return True
-        return False
+        return bool(
+            (
+                node_dict['locked'] is True
+                and desc is not None
+                and desc.startswith('/')
+                and desc.count('/') > 1
+            )
+        )
 
     # Which nodes are locked for jobs?
     nodes = list_locks(locked=True)
@@ -141,7 +142,7 @@ def find_stale_locks(owner=None):
             return True
         return False
 
-    result = list()
+    result = []
     # Here we build the list of of nodes that are locked, for a job (as opposed
     # to being locked manually for random monkeying), where the job is not
     # running

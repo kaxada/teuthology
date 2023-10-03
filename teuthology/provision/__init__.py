@@ -15,8 +15,7 @@ log = logging.getLogger(__name__)
 
 def _logfile(ctx, shortname):
     if hasattr(ctx, 'config') and ctx.config.get('archive_path'):
-        return os.path.join(ctx.config['archive_path'],
-                            shortname + '.downburst.log')
+        return os.path.join(ctx.config['archive_path'], f'{shortname}.downburst.log')
 
 def get_reimage_types():
     return pelagos.get_types() + fog.get_types()
@@ -62,7 +61,7 @@ def create_if_vm(ctx, machine_name, _downburst=None):
             shortname,
             os_type,
             os_version,
-            conf=getattr(ctx, 'config', dict()),
+            conf=getattr(ctx, 'config', {}),
         ).create()
 
     has_config = hasattr(ctx, 'config') and ctx.config is not None

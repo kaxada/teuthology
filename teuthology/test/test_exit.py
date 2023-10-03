@@ -64,28 +64,25 @@ class TestExiter(object):
         send_sig = random.choice(sig)
         n = 3
         obj = self.klass()
-        handlers = list()
+        handlers = []
         for i in range(n):
-            m_func = Mock(name="handler %s" % i)
+            m_func = Mock(name=f"handler {i}")
             handlers.append(obj.add_handler(sig, m_func))
         assert obj.handlers == handlers
         for handler in handlers:
             handler.remove()
-        assert obj.handlers == list()
+        assert obj.handlers == []
         self.kill_unpatched(self.pid, send_sig)
         assert self.m_kill.call_count == 1
         for handler in handlers:
             assert handler.func.call_count == 0
 
     def test_n_handlers(self, n=10, sig=11):
-        if isinstance(sig, int):
-            send_sig = sig
-        else:
-            send_sig = random.choice(sig)
+        send_sig = sig if isinstance(sig, int) else random.choice(sig)
         obj = self.klass()
-        handlers = list()
+        handlers = []
         for i in range(n):
-            m_func = Mock(name="handler %s" % i)
+            m_func = Mock(name=f"handler {i}")
             handlers.append(obj.add_handler(sig, m_func))
         assert obj.handlers == handlers
         self.kill_unpatched(self.pid, send_sig)

@@ -27,7 +27,7 @@ def _get_local_dir(config, remote):
     if ldir:
         remote.run(args=['sudo', 'mkdir', '-p', ldir])
         for fyle in os.listdir(ldir):
-            fname = "%s/%s" % (ldir, fyle)
+            fname = f"{ldir}/{fyle}"
             teuthology.sudo_write_file(
                 remote, fname, open(fname).read(), '644')
     return ldir
@@ -37,18 +37,16 @@ def get_flavor(config):
     """
     Determine the flavor to use.
     """
-    config = config or dict()
+    config = config or {}
     flavor = config.get('flavor', 'default')
 
     if config.get('path'):
         # local dir precludes any other flavors
         flavor = 'local'
-    else:
-        if config.get('valgrind'):
-            flavor = 'notcmalloc'
-        else:
-            if config.get('coverage'):
-                flavor = 'gcov'
+    elif config.get('valgrind'):
+        flavor = 'notcmalloc'
+    elif config.get('coverage'):
+        flavor = 'gcov'
     return flavor
 
 def _ship_utilities(ctx):
@@ -140,8 +138,7 @@ def ship_utilities(ctx, config):
     """
     assert config is None
 
-    do_ship_utilities = ctx.get('do_ship_utilities', True)
-    if do_ship_utilities:
+    if do_ship_utilities := ctx.get('do_ship_utilities', True):
         ctx['do_ship_utilities'] = False
         filenames = _ship_utilities(ctx)
         try:

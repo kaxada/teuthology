@@ -18,7 +18,7 @@ def vps_version_or_type_valid(machine_type, os_type, os_version):
     is skipped (so that this code should behave as it did before this
     check was added).
     """
-    if not machine_type == 'vps':
+    if machine_type != 'vps':
         return True
     if os_type is None or os_version is None:
         # we'll use the defaults provided by provision.create_if_vm
@@ -55,7 +55,7 @@ def validate_distro_version(version, supported_versions):
         if len(part) == 2:
             if version == part[0]:
                 return True
-            if version == part[1][0:len(part[1])-1]:
+            if version == part[1][:-1]:
                 return True
 
 
@@ -75,7 +75,7 @@ def json_matching_statuses(json_file_or_str, statuses):
     if not isinstance(query, dict):
         raise RuntimeError('--json-query must be a dict')
 
-    return_statuses = list()
+    return_statuses = []
     for status in statuses:
         for k, v in query.items():
             if not misc.is_in_dict(k, v, status):

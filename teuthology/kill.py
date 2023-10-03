@@ -20,13 +20,12 @@ log = logging.getLogger(__name__)
 def main(args):
     run_name = args['--run']
     job = args['--job']
-    jobspec = args['--jobspec']
     archive_base = args['--archive']
     owner = args['--owner']
     machine_type = args['--machine-type']
     preserve_queue = args['--preserve-queue']
 
-    if jobspec:
+    if jobspec := args['--jobspec']:
         split_spec = jobspec.split('/')
         run_name = split_spec[0]
         job = [split_spec[1]]
@@ -41,8 +40,8 @@ def main(args):
 
 def kill_run(run_name, archive_base=None, owner=None, machine_type=None,
              preserve_queue=False):
-    run_info = {}
     serializer = report.ResultsSerializer(archive_base)
+    run_info = {}
     if archive_base:
         run_archive_dir = os.path.join(archive_base, run_name)
         if os.path.isdir(run_archive_dir):
@@ -51,9 +50,9 @@ def kill_run(run_name, archive_base=None, owner=None, machine_type=None,
                 machine_type = run_info['machine_type']
                 owner = run_info['owner']
             else:
-                log.warning("The run info does not have machine type: %s" % run_info)
-                log.warning("Run archive used: %s" % run_archive_dir)
-                log.info("Using machine type '%s' and owner '%s'" % (machine_type, owner))
+                log.warning(f"The run info does not have machine type: {run_info}")
+                log.warning(f"Run archive used: {run_archive_dir}")
+                log.info(f"Using machine type '{machine_type}' and owner '{owner}'")
         elif machine_type is None:
             # no jobs found in archive and no machine type specified,
             # so we try paddles to see if there is anything scheduled
@@ -62,8 +61,9 @@ def kill_run(run_name, archive_base=None, owner=None, machine_type=None,
             if machine_type:
                 log.info(f"Using machine type '{machine_type}' received from paddles.")
             else:
-                raise RuntimeError(f"Cannot find machine type for the run {run_name}; " +
-                                    "you must also pass --machine-type")
+                raise RuntimeError(
+                    f"Cannot find machine type for the run {run_name}; you must also pass --machine-type"
+                )
 
     if not preserve_queue:
         remove_beanstalk_jobs(run_name, machine_type)
@@ -122,8 +122,7 @@ def find_run_info(serializer, run_name):
 
 def remove_paddles_jobs(run_name):
     jobs = report.ResultsReporter().get_jobs(run_name, fields=['status'])
-    job_ids = [job['job_id'] for job in jobs if job['status'] == 'queued']
-    if job_ids:
+    if job_ids := [job['job_id'] for job in jobs if job['status'] == 'queued']:
         log.info("Deleting jobs from paddles: %s", str(job_ids))
         report.try_delete_jobs(run_name, job_ids)
 
@@ -178,7 +177,7 @@ def kill_processes(run_name, pids=None):
     if len(to_kill) == 0:
         log.info("No teuthology processes running")
     else:
-        log.info("Killing Pids: " + str(to_kill))
+        log.info(f"Killing Pids: {str(to_kill)}")
         may_need_sudo = \
             psutil.Process(int(pid)).username() != getpass.getuser()
         if may_need_sudo:
@@ -206,11 +205,7 @@ def process_matches_run(pid, run_name):
 
 
 def find_pids(run_name):
-    run_pids = []
-    for pid in psutil.pids():
-        if process_matches_run(pid, run_name):
-            run_pids.append(pid)
-    return run_pids
+    return [pid for pid in psutil.pids() if process_matches_run(pid, run_name)]
 
 
 def find_targets(run_name, owner, job_id=None):
@@ -218,19 +213,16 @@ def find_targets(run_name, owner, job_id=None):
         'teuthology-lock',
         '--list-targets',
         '--desc-pattern',
-        '/' + run_name + '/' + str(job_id or ''),
+        f'/{run_name}/' + str(job_id or ''),
         '--status',
         'up',
         '--owner',
-        owner
+        owner,
     ]
     proc = subprocess.Popen(lock_args, stdout=subprocess.PIPE)
     stdout, stderr = proc.communicate()
     out_obj = yaml.safe_load(stdout)
-    if not out_obj or 'targets' not in out_obj:
-        return {}
-
-    return out_obj
+    return {} if not out_obj or 'targets' not in out_obj else out_obj
 
 
 def nuke_targets(targets_dict, owner):
@@ -239,24 +231,21 @@ def nuke_targets(targets_dict, owner):
         log.info("No locked machines. Not nuking anything")
         return
 
-    to_nuke = []
-    for target in targets:
-        to_nuke.append(misc.decanonicalize_hostname(target))
-
+    to_nuke = [misc.decanonicalize_hostname(target) for target in targets]
     target_file = tempfile.NamedTemporaryFile(delete=False, mode='w+t')
     target_file.write(yaml.safe_dump(targets_dict))
     target_file.close()
 
-    log.info("Nuking machines: " + str(to_nuke))
+    log.info(f"Nuking machines: {to_nuke}")
     nuke_args = [
         'teuthology-nuke',
         '-t',
         target_file.name,
         '--owner',
-        owner
+        owner,
+        '--reboot-all',
+        '--unlock',
     ]
-    nuke_args.extend(['--reboot-all', '--unlock'])
-
     proc = subprocess.Popen(
         nuke_args,
         stdout=subprocess.PIPE,

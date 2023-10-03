@@ -68,9 +68,9 @@ def results(archive_dir, name, email, timeout, dry_run):
 
     Scraper(archive_dir).analyze()
     if email and dry_run:
-        print("From: %s" % (config.results_sending_email or 'teuthology'))
-        print("To: %s" % email)
-        print("Subject: %s" % subject)
+        print(f"From: {config.results_sending_email or 'teuthology'}")
+        print(f"To: {email}")
+        print(f"Subject: {subject}")
         print(body)
     elif email:
         email_results(
@@ -96,14 +96,16 @@ def email_results(subject, from_, to, body):
 
 
 def build_email_body(name, _reporter=None):
-    stanzas = OrderedDict([
-        ('fail', dict()),
-        ('dead', dict()),
-        ('running', dict()),
-        ('waiting', dict()),
-        ('queued', dict()),
-        ('pass', dict()),
-    ])
+    stanzas = OrderedDict(
+        [
+            ('fail', {}),
+            ('dead', {}),
+            ('running', {}),
+            ('waiting', {}),
+            ('queued', {}),
+            ('pass', {}),
+        ]
+    )
     reporter = _reporter or ResultsReporter()
     fields = ('job_id', 'status', 'description', 'duration', 'failure_reason',
               'sentry_event', 'log_href')
@@ -117,9 +119,8 @@ def build_email_body(name, _reporter=None):
     sections = OrderedDict.fromkeys(stanzas.keys(), '')
     subject_fragments = []
     for status in sections.keys():
-        stanza = stanzas[status]
-        if stanza:
-            subject_fragments.append('%s %s' % (len(stanza), status))
+        if stanza := stanzas[status]:
+            subject_fragments.append(f'{len(stanza)} {status}')
             sections[status] = email_templates['sect_templ'].format(
                 title=status.title(),
                 jobs=''.join(stanza.values()),
@@ -159,9 +160,7 @@ def format_job(run_name, job):
     description = job['description']
     duration = seconds_to_hms(int(job['duration'] or 0))
 
-    # Every job gets a link to e.g. pulpito's pages
-    info_url = misc.get_results_url(run_name, job_id)
-    if info_url:
+    if info_url := misc.get_results_url(run_name, job_id):
         info_line = email_templates['info_url_templ'].format(info=info_url)
     else:
         info_line = ''
@@ -182,43 +181,39 @@ def format_job(run_name, job):
             time=duration,
             info_line=info_line,
         )
+    log_line = (
+        email_templates['fail_log_templ'].format(log=log_dir_url)
+        if (log_dir_url := job['log_href'].rstrip('teuthology.yaml'))
+        else ''
+    )
+    if sentry_event := job.get('sentry_event'):
+        sentry_line = email_templates['fail_sentry_templ'].format(
+            sentry_event=sentry_event)
     else:
-        log_dir_url = job['log_href'].rstrip('teuthology.yaml')
-        if log_dir_url:
-            log_line = email_templates['fail_log_templ'].format(
-                log=log_dir_url)
-        else:
-            log_line = ''
-        sentry_event = job.get('sentry_event')
-        if sentry_event:
-            sentry_line = email_templates['fail_sentry_templ'].format(
-                sentry_event=sentry_event)
-        else:
-            sentry_line = ''
+        sentry_line = ''
 
-        if job['failure_reason']:
-            # 'fill' is from the textwrap module and it collapses a given
-            # string into multiple lines of a maximum width as specified.
-            # We want 75 characters here so that when we indent by 4 on the
-            # next line, we have 79-character exception paragraphs.
-            reason = fill(job['failure_reason'] or '', 75)
-            reason = \
-                '\n'.join(('    ') + line for line in reason.splitlines())
-            reason_lines = email_templates['fail_reason_templ'].format(
-                reason=reason).rstrip()
-        else:
-            reason_lines = ''
+    if job['failure_reason']:
+        # 'fill' is from the textwrap module and it collapses a given
+        # string into multiple lines of a maximum width as specified.
+        # We want 75 characters here so that when we indent by 4 on the
+        # next line, we have 79-character exception paragraphs.
+        reason = fill(job['failure_reason'] or '', 75)
+        reason = '\n'.join(f'    {line}' for line in reason.splitlines())
+        reason_lines = email_templates['fail_reason_templ'].format(
+            reason=reason).rstrip()
+    else:
+        reason_lines = ''
 
-        format_args = dict(
-            job_id=job_id,
-            desc=description,
-            time=duration,
-            info_line=info_line,
-            log_line=log_line,
-            sentry_line=sentry_line,
-            reason_lines=reason_lines,
-        )
-        return email_templates['fail_templ'].format(**format_args)
+    format_args = dict(
+        job_id=job_id,
+        desc=description,
+        time=duration,
+        info_line=info_line,
+        log_line=log_line,
+        sentry_line=sentry_line,
+        reason_lines=reason_lines,
+    )
+    return email_templates['fail_templ'].format(**format_args)
 
 
 def seconds_to_hms(seconds):

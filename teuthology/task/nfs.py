@@ -56,10 +56,10 @@ def task(ctx, config):
     testdir = teuthology.get_testdir(ctx)
     for id_, remote in clients:
         mnt = os.path.join(testdir, 'mnt.{id}'.format(id=id_))
-        client_config = config.get("client.%s" % id_)
+        client_config = config.get(f"client.{id_}")
         if client_config is None:
             client_config = {}
-        log.debug("Client client.%s config is %s" % (id_, client_config))
+        log.debug(f"Client client.{id_} config is {client_config}")
 
         assert client_config.get('server') is not None
         server = client_config.get('server');
@@ -67,16 +67,14 @@ def task(ctx, config):
         svr_id = server[len('client.'):]
         svr_mnt = os.path.join(testdir, 'mnt.{id}'.format(id=svr_id))
 
-        svr_remote  = None
         all_config = ['client.{id}'.format(id=tmpid)
                   for tmpid in teuthology.all_roles_of_type(ctx.cluster, 'client')]
         all_clients = list(teuthology.get_clients(ctx=ctx, roles=all_config))
-        for tmpid, tmpremote in all_clients:
-            if tmpid == svr_id:
-                svr_remote = tmpremote
-                break
-
-        assert svr_remote is not None 
+        svr_remote = next(
+            (tmpremote for tmpid, tmpremote in all_clients if tmpid == svr_id),
+            None,
+        )
+        assert svr_remote is not None
         svr_remote = svr_remote.name.split('@', 2)[1]
 
         if client_config.get('options') is not None:

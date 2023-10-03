@@ -124,13 +124,12 @@ def task(ctx, config):
     log.info('mpi rank 0 is: {name}'.format(name=master_remote.name))
 
     # write out the mpi hosts file
-    log.info('mpi nodes: [%s]' % (', '.join(hosts)))
+    log.info(f"mpi nodes: [{', '.join(hosts)}]")
     teuthology.write_file(remote=master_remote,
                           path='{tdir}/mpi-hosts'.format(tdir=testdir),
                           data='\n'.join(hosts))
     log.info('mpiexec on {name}: {cmd}'.format(name=master_remote.name, cmd=mpiexec))
-    args=['mpiexec', '-f', '{tdir}/mpi-hosts'.format(tdir=testdir)]
-    args.extend(workdir)
+    args = ['mpiexec', '-f', '{tdir}/mpi-hosts'.format(tdir=testdir), *workdir]
     args.extend(mpiexec.split(' '))
     master_remote.run(args=args, )
     log.info('mpi task completed')

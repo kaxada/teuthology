@@ -14,9 +14,7 @@ def vm_setup(ctx, config):
     Look for virtual machines and handle their initialization
     """
     all_tasks = [list(x.keys())[0] for x in ctx.config['tasks']]
-    need_ansible = False
-    if 'kernel' in all_tasks and 'ansible.cephlab' not in all_tasks:
-        need_ansible = True
+    need_ansible = 'kernel' in all_tasks and 'ansible.cephlab' not in all_tasks
     ansible_hosts = set()
     with parallel():
         editinfo = os.path.join(os.path.dirname(__file__), 'edit_sudoers.sh')

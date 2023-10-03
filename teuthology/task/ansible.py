@@ -230,16 +230,14 @@ class Ansible(Task):
         # Write out the inventory file
         inv_file = open(inv_fn, 'w')
         inv_file.write(inventory)
-        # Next, write the group_vars files
-        all_group_vars = self.config.get('group_vars')
-        if all_group_vars:
+        if all_group_vars := self.config.get('group_vars'):
             group_vars_dir = os.path.join(inventory_dir, 'group_vars')
             os.mkdir(group_vars_dir)
             # We loop over a sorted list of keys here because we want our tests
             # to be able to mock predictably
             for group_name in sorted(all_group_vars):
                 group_vars = all_group_vars[group_name]
-                path = os.path.join(group_vars_dir, group_name + '.yml')
+                path = os.path.join(group_vars_dir, f'{group_name}.yml')
                 gv_file = open(path, 'w')
                 yaml.safe_dump(group_vars, gv_file)
 
@@ -274,7 +272,7 @@ class Ansible(Task):
         environ = os.environ
         environ['ANSIBLE_SSH_PIPELINING'] = '1'
         environ['ANSIBLE_FAILURE_LOG'] = self.failure_log.name
-        environ['ANSIBLE_ROLES_PATH'] = "%s/roles" % self.repo_path
+        environ['ANSIBLE_ROLES_PATH'] = f"{self.repo_path}/roles"
         environ['ANSIBLE_NOCOLOR'] = "1"
         args = self._build_args()
         command = ' '.join(args)
@@ -342,19 +340,21 @@ class Ansible(Task):
         # Assume all remotes use the same username
         user = list(self.cluster.remotes)[0].user
         extra_vars = dict(ansible_ssh_user=user)
-        extra_vars.update(self.config.get('vars', dict()))
+        extra_vars.update(self.config.get('vars', {}))
         args = [
-            'ansible-playbook', '-v',
-            "--extra-vars", "'%s'" % json.dumps(extra_vars),
-            '-i', self.inventory,
-            '--limit', ','.join(fqdns),
+            'ansible-playbook',
+            '-v',
+            "--extra-vars",
+            f"'{json.dumps(extra_vars)}'",
+            '-i',
+            self.inventory,
+            '--limit',
+            ','.join(fqdns),
             self.playbook_file.name,
         ]
-        tags = self.config.get('tags')
-        if tags:
+        if tags := self.config.get('tags'):
             args.extend(['--tags', tags])
-        skip_tags = self.config.get('skip_tags')
-        if skip_tags:
+        if skip_tags := self.config.get('skip_tags'):
             args.extend(['--skip-tags', skip_tags])
         return args
 
@@ -404,7 +404,7 @@ class CephLab(Ansible):
     inventory_group = 'testnodes'
 
     def __init__(self, ctx, config):
-        config = config or dict()
+        config = config or {}
         if 'playbook' not in config:
             config['playbook'] = 'cephlab.yml'
         if 'repo' not in config:

@@ -44,7 +44,7 @@ class TestYamlConfig(object):
         assert conf_obj.to_str() == in_str
 
     def test_update(self):
-        conf_obj = self.test_class(dict())
+        conf_obj = self.test_class({})
         conf_obj.foo = 'foo'
         conf_obj.bar = 'bar'
         conf_obj.update(dict(bar='baz'))
@@ -65,7 +65,7 @@ class TestYamlConfig(object):
         assert conf_obj.foo == "bar"
 
     def test_used_with_update(self):
-        d = dict()
+        d = {}
         conf_obj = self.test_class.from_dict({"foo": "bar"})
         d.update(conf_obj)
         assert d["foo"] == "bar"

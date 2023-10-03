@@ -17,7 +17,7 @@ def munge(path):
     # all leading dots become underscores; makes .. safe too
     for idx, seg in enumerate(segments):
         if seg.startswith('.'):
-            segments[idx] = '_'+seg[1:]
+            segments[idx] = f'_{seg[1:]}'
     # empty string, "/", "//", etc
     if not segments:
         segments = ['_']
@@ -36,7 +36,5 @@ def makedirs(root, path):
         try:
             os.mkdir(root)
         except OSError as e:
-            if e.errno == errno.EEXIST:
-                pass
-            else:
+            if e.errno != errno.EEXIST:
                 raise

@@ -24,14 +24,10 @@ class TestSerializer(object):
     def test_all_runs_three_runs(self):
         run_count = 3
         runs = {}
+        yaml_path = "examples/3node_ceph.yaml"
         for i in range(run_count):
-            run_name = "run #%s" % i
-            yaml_path = "examples/3node_ceph.yaml"
-            job_count = 3
-            job_ids = self.archive.create_fake_run(
-                run_name,
-                job_count,
-                yaml_path)
+            run_name = f"run #{i}"
+            job_ids = self.archive.create_fake_run(run_name, 3, yaml_path)
             runs[run_name] = job_ids
         assert sorted(runs.keys()) == sorted(self.reporter.serializer.all_runs)
 

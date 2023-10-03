@@ -13,14 +13,11 @@ class TestTask(object):
 
     def setup(self):
         self.ctx = FakeNamespace()
-        self.ctx.config = dict()
-        self.task_config = dict()
+        self.ctx.config = {}
+        self.task_config = {}
 
     def test_overrides(self):
-        self.ctx.config['overrides'] = dict()
-        self.ctx.config['overrides'][self.task_name] = dict(
-            key_1='overridden',
-        )
+        self.ctx.config['overrides'] = {self.task_name: dict(key_1='overridden')}
         self.task_config.update(dict(
             key_1='default',
             key_2='default',
@@ -163,7 +160,7 @@ class TestTask(object):
                 task.begin.assert_called_once_with()
 
     def test_end_called(self):
-        self.task_config.update(dict())
+        self.task_config.update({})
         with patch.multiple(
             self.klass,
             begin=DEFAULT,
@@ -174,7 +171,7 @@ class TestTask(object):
             task.end.assert_called_once_with()
 
     def test_teardown_called(self):
-        self.task_config.update(dict())
+        self.task_config.update({})
         with patch.multiple(
             self.klass,
             setup=DEFAULT,

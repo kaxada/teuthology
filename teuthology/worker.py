@@ -28,10 +28,7 @@ def sentinel(path):
     if not os.path.exists(path):
         return False
     file_mtime = datetime.utcfromtimestamp(os.path.getmtime(path))
-    if file_mtime > start_time:
-        return True
-    else:
-        return False
+    return file_mtime > start_time
 
 
 def restart():
@@ -59,9 +56,7 @@ def load_config(ctx=None):
 
 
 def main(ctx):
-    loglevel = logging.INFO
-    if ctx.verbose:
-        loglevel = logging.DEBUG
+    loglevel = logging.DEBUG if ctx.verbose else logging.INFO
     log.setLevel(loglevel)
 
     log_file_path = os.path.join(ctx.log_dir, 'worker.{tube}.{pid}'.format(
@@ -153,7 +148,7 @@ def prep_job(job_config, log_file_path, archive_dir):
         repo_url = build_git_url('teuthology', 'ceph')
         teuthology_sha1 = ls_remote(repo_url, teuthology_branch)
         if not teuthology_sha1:
-            reason = "Teuthology branch {} not found; marking job as dead".format(teuthology_branch)
+            reason = f"Teuthology branch {teuthology_branch} not found; marking job as dead"
             log.error(reason)
             report.try_push_job_info(
                 job_config,
@@ -174,8 +169,7 @@ def prep_job(job_config, log_file_path, archive_dir):
         ceph_branch = job_config.get('branch', 'master')
         suite_branch = job_config.get('suite_branch', ceph_branch)
         suite_sha1 = job_config.get('suite_sha1')
-        suite_repo = job_config.get('suite_repo')
-        if suite_repo:
+        if suite_repo := job_config.get('suite_repo'):
             teuth_config.ceph_qa_suite_git_url = suite_repo
         job_config['suite_path'] = os.path.normpath(os.path.join(
             fetch_qa_suite(suite_branch, suite_sha1),
@@ -198,8 +192,9 @@ def prep_job(job_config, log_file_path, archive_dir):
 
     teuth_bin_path = os.path.join(teuth_path, 'virtualenv', 'bin')
     if not os.path.isdir(teuth_bin_path):
-        raise RuntimeError("teuthology branch %s at %s not bootstrapped!" %
-                           (teuthology_branch, teuth_bin_path))
+        raise RuntimeError(
+            f"teuthology branch {teuthology_branch} at {teuth_bin_path} not bootstrapped!"
+        )
     return job_config, teuth_bin_path
 
 
@@ -273,7 +268,7 @@ def run_job(job_config, teuth_bin_path, archive_dir, verbose):
     arg.append('--')
 
     with tempfile.NamedTemporaryFile(prefix='teuthology-worker.',
-                                     suffix='.tmp', mode='w+t') as tmp:
+                                         suffix='.tmp', mode='w+t') as tmp:
         yaml.safe_dump(data=job_config, stream=tmp)
         tmp.flush()
         arg.append(tmp.name)
@@ -281,7 +276,7 @@ def run_job(job_config, teuth_bin_path, archive_dir, verbose):
         python_path = env.get('PYTHONPATH', '')
         python_path = ':'.join([suite_path, python_path]).strip(':')
         env['PYTHONPATH'] = python_path
-        log.debug("Running: %s" % ' '.join(arg))
+        log.debug(f"Running: {' '.join(arg)}")
         p = subprocess.Popen(args=arg, env=env)
         log.info("Job archive: %s", job_config['archive_path'])
         log.info("Job PID: %s", str(p.pid))

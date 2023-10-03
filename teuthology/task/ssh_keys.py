@@ -54,23 +54,21 @@ def particular_ssh_key_test(line_to_test, ssh_key):
     """
     Check the validity of the ssh_key
     """
-    match = re.match('[\w-]+ {key} \S+@\S+'.format(key=re.escape(ssh_key)), line_to_test)
-
-    if match:
-        return False
-    else:
-        return True
+    return not (
+        match := re.match(
+            '[\w-]+ {key} \S+@\S+'.format(key=re.escape(ssh_key)), line_to_test
+        )
+    )
 
 def ssh_keys_user_line_test(line_to_test, username ):
     """
     Check the validity of the username
     """
-    match = re.match('[\w-]+ \S+ {username}@\S+'.format(username=username), line_to_test)
-
-    if match:
-        return False
-    else:
-        return True
+    return not (
+        match := re.match(
+            '[\w-]+ \S+ {username}@\S+'.format(username=username), line_to_test
+        )
+    )
 
 def cleanup_added_key(ctx, key_backup_files, path):
     """
@@ -80,9 +78,7 @@ def cleanup_added_key(ctx, key_backup_files, path):
 
     for remote in ctx.cluster.remotes:
         username, hostname = str(remote).split('@')
-        if "" == username or "" == hostname:
-            continue
-        else:
+        if username != "" != hostname:
             log.info('  cleaning up keys for user {user} on {host}'.format(host=hostname, user=username))
             misc.delete_file(remote, '/home/{user}/.ssh/id_rsa'.format(user=username))
             misc.delete_file(remote, '/home/{user}/.ssh/id_rsa.pub'.format(user=username))
@@ -140,13 +136,11 @@ def push_keys_to_host(ctx, config, public_key, private_key):
         fake_hostname = '{user}@{host}'.format(user=ssh_keys_user, host=str(inner_hostname))
         auth_keys_data += '\nssh-rsa {pub_key} {user_host}\n'.format(pub_key=public_key, user_host=fake_hostname)
 
-    key_backup_files = dict()
+    key_backup_files = {}
     # for each host in ctx, add keys for all other hosts
     for remote in ctx.cluster.remotes:
         username, hostname = str(remote).split('@')
-        if "" == username or "" == hostname:
-            continue
-        else:
+        if username != "" != hostname:
             log.info('pushing keys to {host} for {user}'.format(host=hostname, user=username))
 
             # adding a private key

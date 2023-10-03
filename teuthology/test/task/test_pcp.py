@@ -136,9 +136,7 @@ class TestGraphiteGrapher(TestPCPGrapher):
         )
         expected_urls = [obj.get_graph_url(m) for m in obj.metrics]
         obj.build_graph_urls()
-        built_urls = []
-        for metric in obj.graphs.keys():
-            built_urls.append(obj.graphs[metric]['url'])
+        built_urls = [obj.graphs[metric]['url'] for metric in obj.graphs.keys()]
         assert len(built_urls) == len(expected_urls)
         assert sorted(built_urls) == sorted(expected_urls)
 
@@ -173,20 +171,11 @@ class TestGraphiteGrapher(TestPCPGrapher):
             m_get.return_value = m_resp
             with patch('teuthology.task.pcp.open', mock_open(), create=True):
                 obj.download_graphs()
-        expected_filenames = []
-        for metric in obj.metrics:
-            expected_filenames.append(
-                "{}.{}".format(
-                    os.path.join(
-                        dest_dir,
-                        obj._sanitize_metric_name(metric),
-                    ),
-                    _format,
-                )
-            )
-        graph_filenames = []
-        for metric in obj.graphs.keys():
-            graph_filenames.append(obj.graphs[metric]['file'])
+        expected_filenames = [
+            f"{os.path.join(dest_dir, obj._sanitize_metric_name(metric))}.{_format}"
+            for metric in obj.metrics
+        ]
+        graph_filenames = [obj.graphs[metric]['file'] for metric in obj.graphs.keys()]
         assert sorted(graph_filenames) == sorted(expected_filenames)
 
     def test_generate_html_static(self):
@@ -236,8 +225,8 @@ class TestPCPTask(TestTask):
         self.ctx.cluster = Cluster()
         self.ctx.cluster.add(Remote('user@remote1'), ['role1'])
         self.ctx.cluster.add(Remote('user@remote2'), ['role2'])
-        self.ctx.config = dict()
-        self.task_config = dict()
+        self.ctx.config = {}
+        self.task_config = {}
         config.pcp_host = pcp_host
 
     def test_init(self):

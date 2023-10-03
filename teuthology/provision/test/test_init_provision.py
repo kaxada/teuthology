@@ -28,6 +28,7 @@ class TestInitProvision(object):
                                  "ftype1", "ftype2", "common_type"]
 
     def test_reimage(self):
+
         class context:
             pass
         ctx = context()
@@ -36,11 +37,11 @@ class TestInitProvision(object):
         with raises(Exception) as e_info:
             teuthology.provision.reimage(ctx, 'f.q.d.n.org', 'not-defined-type')
         e_str = str(e_info)
-        print("Caught exception: " +  e_str)
-        assert e_str.find("configured\sprovisioners") == -1
+        print(f"Caught exception: {e_str}")
+        assert "configured\sprovisioners" not in e_str
 
         with raises(Exception) as e_info:
             teuthology.provision.reimage(ctx, 'f.q.d.n.org', 'common_type')
         e_str = str(e_info)
-        print("Caught exception: " +  e_str)
-        assert e_str.find("used\swith\sone\sprovisioner\sonly") == -1
+        print(f"Caught exception: {e_str}")
+        assert "used\swith\sone\sprovisioner\sonly" not in e_str

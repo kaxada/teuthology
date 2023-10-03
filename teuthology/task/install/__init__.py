@@ -47,13 +47,7 @@ def verify_package_version(ctx, config, remote):
     version = builder.version
     pkg_to_check = builder.project
     installed_ver = packaging.get_package_version(remote, pkg_to_check)
-    if installed_ver and version in installed_ver:
-        msg = "The correct {pkg} version {ver} is installed.".format(
-            ver=version,
-            pkg=pkg_to_check
-        )
-        log.info(msg)
-    else:
+    if not installed_ver or version not in installed_ver:
         raise RuntimeError(
             "{pkg} version {ver} was not installed, found {installed}.".format(
                 ver=version,
@@ -61,6 +55,11 @@ def verify_package_version(ctx, config, remote):
                 pkg=pkg_to_check
             )
         )
+    msg = "The correct {pkg} version {ver} is installed.".format(
+        ver=version,
+        pkg=pkg_to_check
+    )
+    log.info(msg)
 
 
 def install_packages(ctx, pkgs, config):
@@ -150,20 +149,20 @@ def get_package_list(ctx, config):
         'packages.yaml',
     )
     default_packages = yaml.safe_load(open(yaml_path))
-    default_debs = default_packages.get(project, dict()).get('deb', [])
-    default_rpms = default_packages.get(project, dict()).get('rpm', [])
+    default_debs = default_packages.get(project, {}).get('deb', [])
+    default_rpms = default_packages.get(project, {}).get('rpm', [])
     # If a custom deb and/or rpm list is provided via the task config, use
     # that. Otherwise, use the list from whichever packages.yaml was found
     # first
-    debs = config.get('packages', dict()).get('deb', default_debs)
-    rpms = config.get('packages', dict()).get('rpm', default_rpms)
+    debs = config.get('packages', {}).get('deb', default_debs)
+    rpms = config.get('packages', {}).get('rpm', default_rpms)
     # Optionally include or exclude debug packages
     if not debug:
         debs = [p for p in debs if not p.endswith('-dbg')]
         rpms = [p for p in rpms if not p.endswith('-debuginfo')]
 
     def exclude(pkgs, exclude_list):
-        return list(pkg for pkg in pkgs if pkg not in exclude_list)
+        return [pkg for pkg in pkgs if pkg not in exclude_list]
 
     excluded_packages = config.get('exclude_packages', [])
     if isinstance(excluded_packages, dict):
@@ -556,20 +555,20 @@ def task(ctx, config):
         "task install only supports a dictionary for configuration"
 
     project, = config.get('project', 'ceph'),
-    log.debug('project %s' % project)
+    log.debug(f'project {project}')
     overrides = ctx.config.get('overrides')
     repos = None
     if overrides:
         install_overrides = overrides.get('install', {})
         teuthology.deep_merge(config, install_overrides.get(project, {}))
         repos = install_overrides.get('repos', None)
-        log.debug('INSTALL overrides: %s' % install_overrides)
-    log.debug('config %s' % config)
+        log.debug(f'INSTALL overrides: {install_overrides}')
+    log.debug(f'config {config}')
 
     rhbuild = None
     if config.get('rhbuild'):
         rhbuild = config.get('rhbuild')
-        log.info("Build is %s " % rhbuild)
+        log.info(f"Build is {rhbuild} ")
 
     flavor = get_flavor(config)
     log.info("Using flavor: %s", flavor)
@@ -591,22 +590,22 @@ def task(ctx, config):
                 yield
     else:
         nested_config = dict(
-                branch=config.get('branch'),
-                cleanup=config.get('cleanup'),
-                debuginfo=config.get('debuginfo'),
-                downgrade_packages=config.get('downgrade_packages', []),
-                exclude_packages=config.get('exclude_packages', []),
-                extra_packages=config.get('extra_packages', []),
-                extra_system_packages=config.get('extra_system_packages', []),
-                extras=config.get('extras', None),
-                flavor=flavor,
-                install_ceph_packages=config.get('install_ceph_packages', True),
-                packages=config.get('packages', dict()),
-                project=project,
-                repos_only=config.get('repos_only', False),
-                sha1=config.get('sha1'),
-                tag=config.get('tag'),
-                wait_for_package=config.get('wait_for_package', False),
+            branch=config.get('branch'),
+            cleanup=config.get('cleanup'),
+            debuginfo=config.get('debuginfo'),
+            downgrade_packages=config.get('downgrade_packages', []),
+            exclude_packages=config.get('exclude_packages', []),
+            extra_packages=config.get('extra_packages', []),
+            extra_system_packages=config.get('extra_system_packages', []),
+            extras=config.get('extras', None),
+            flavor=flavor,
+            install_ceph_packages=config.get('install_ceph_packages', True),
+            packages=config.get('packages', {}),
+            project=project,
+            repos_only=config.get('repos_only', False),
+            sha1=config.get('sha1'),
+            tag=config.get('tag'),
+            wait_for_package=config.get('wait_for_package', False),
         )
         if repos:
             nested_config['repos'] = repos

@@ -18,14 +18,14 @@ class TestRepoUtils(object):
     @classmethod
     def setup_class(cls):
         cls.temp_path = tempfile.mkdtemp(prefix='test_repo-')
-        cls.dest_path = cls.temp_path + '/empty_dest'
-        cls.src_path = cls.temp_path + '/empty_src'
+        cls.dest_path = f'{cls.temp_path}/empty_dest'
+        cls.src_path = f'{cls.temp_path}/empty_src'
 
         if 'TEST_ONLINE' in os.environ:
             cls.repo_url = 'https://github.com/ceph/empty.git'
             cls.commit = '71245d8e454a06a38a00bff09d8f19607c72e8bf'
         else:
-            cls.repo_url = 'file://' + cls.src_path
+            cls.repo_url = f'file://{cls.src_path}'
             cls.commit = None
 
     @classmethod
@@ -80,7 +80,7 @@ class TestRepoUtils(object):
         assert not os.path.exists(self.dest_path)
 
     def test_fetch_no_repo(self):
-        fake_dest_path = self.temp_path + '/not_a_repo'
+        fake_dest_path = f'{self.temp_path}/not_a_repo'
         assert not os.path.exists(fake_dest_path)
         with raises(OSError):
             repo_utils.fetch(fake_dest_path)
@@ -92,7 +92,7 @@ class TestRepoUtils(object):
         assert os.path.exists(self.dest_path)
 
     def test_fetch_branch_no_repo(self):
-        fake_dest_path = self.temp_path + '/not_a_repo'
+        fake_dest_path = f'{self.temp_path}/not_a_repo'
         assert not os.path.exists(fake_dest_path)
         with raises(OSError):
             repo_utils.fetch_branch(fake_dest_path, 'master')
@@ -182,7 +182,7 @@ class TestRepoUtils(object):
     def test_simultaneous_access(self):
         count = 5
         with parallel.parallel() as p:
-            for i in range(count):
+            for _ in range(count):
                 p.spawn(repo_utils.enforce_repo_state, self.repo_url,
                         self.dest_path, 'master', self.commit)
             for result in p:
@@ -198,12 +198,13 @@ class TestRepoUtils(object):
                     p.spawn(repo_utils.enforce_repo_state, self.repo_url,
                             self.dest_path, branch, commit)
                 else:
-                    dest_path = self.dest_path + '_' + branch
+                    dest_path = f'{self.dest_path}_{branch}'
 
                     def func():
                         repo_utils.enforce_repo_state(
                             self.repo_url, dest_path,
                             branch, commit)
+
                     p.spawn(
                         raises,
                         BranchNotFoundError,

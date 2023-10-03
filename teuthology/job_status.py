@@ -31,8 +31,5 @@ def set_status(summary, status):
         return
 
     summary['status'] = status
-    if status == 'pass':
-        summary['success'] = True
-    else:
-        summary['success'] = False
+    summary['success'] = status == 'pass'
 

@@ -26,7 +26,7 @@ def describe_tests(args):
     suite_dir = os.path.abspath(args["<suite_dir>"])
     output_format = args['--format']
 
-    conf=dict()
+    conf = {}
     rename_args = {
         'filter': 'filter_in',
     }
@@ -139,13 +139,13 @@ def output_summary(path, limit=0,
             break
         count += 1
         if show_desc or show_frag:
-            print("{}".format(c[0]))
-            if show_frag:
-                for path in c[1]:
-                    print("    {}".format(util.strip_fragment_path(path)))
+            print(f"{c[0]}")
+        if show_frag:
+            for path in c[1]:
+                print(f"    {util.strip_fragment_path(path)}")
     if show_matrix:
        print(mat.tostr(1))
-    print("# {}/{} {}".format(count, len(configs), path))
+    print(f"# {count}/{len(configs)} {path}")
 
 def get_combinations(suite_dir,
                      limit=0,
@@ -211,7 +211,7 @@ def get_combinations(suite_dir,
                     if i not in dirs:
                         dirs[i] = set()
                     dirs[i].add(dir_)
-                    metadata['_dir_' + str(i)] = os.path.basename(dir_)
+                    metadata[f'_dir_{str(i)}'] = os.path.basename(dir_)
                     max_dir_depth = max(max_dir_depth, i)
 
         rows.append(metadata)
@@ -219,20 +219,18 @@ def get_combinations(suite_dir,
 
     subsuite_headers = []
     if include_facet:
-        first_subsuite_depth = max_dir_depth
-        for i in range(max_dir_depth):
-            if len(dirs[i]) > 1:
-                first_subsuite_depth = i
-                break
-
-        subsuite_headers = ['subsuite depth ' + str(i)
-                            for i in
-                            range(0, max_dir_depth - first_subsuite_depth + 1)]
+        first_subsuite_depth = next(
+            (i for i in range(max_dir_depth) if len(dirs[i]) > 1),
+            max_dir_depth,
+        )
+        subsuite_headers = [
+            f'subsuite depth {str(i)}'
+            for i in range(0, max_dir_depth - first_subsuite_depth + 1)
+        ]
 
         for row in rows:
             for i in range(first_subsuite_depth, max_dir_depth + 1):
-                row[subsuite_headers[i - first_subsuite_depth]] = \
-                    row.get('_dir_' + str(i), '')
+                row[subsuite_headers[i - first_subsuite_depth]] = row.get(f'_dir_{str(i)}', '')
 
     headers = subsuite_headers + sorted(facet_headers) + fields
     return headers, sorted([[row.get(field, '') for field in headers]
@@ -292,9 +290,9 @@ def extract_info(file_name, fields):
     if not (isinstance(meta, list) and
             len(meta) == 1 and
             isinstance(meta[0], dict)):
-        print('Error in meta format in %s' % file_name)
+        print(f'Error in meta format in {file_name}')
         print('Meta must be a list containing exactly one dict.')
-        print('Meta is: %s' % meta)
+        print(f'Meta is: {meta}')
         raise ParseError()
 
     return {field: meta[0].get(field, '') for field in fields}
@@ -325,7 +323,7 @@ def tree_with_info(cur_dir, fields, include_facet, prefix, rows,
        missing values) in the same order as the provided fields
     """
     files = sorted(os.listdir(cur_dir))
-    has_yamls = any([x.endswith('.yaml') for x in files])
+    has_yamls = any(x.endswith('.yaml') for x in files)
     facet = os.path.basename(cur_dir) if has_yamls else ''
     for i, f in enumerate(files):
         # skip any hidden files

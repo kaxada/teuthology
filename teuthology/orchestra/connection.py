@@ -99,7 +99,7 @@ def connect(user_at_host, host_key=None, keep_alive=False, timeout=60,
         ssh.connect(**connect_args)
     else:
         # Retries are implemented using safe_while
-        with safe_while(sleep=1, action='connect to ' + host) as proceed:
+        with safe_while(sleep=1, action=f'connect to {host}') as proceed:
             while proceed():
                 try:
                     ssh.connect(**connect_args)

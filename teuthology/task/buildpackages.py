@@ -34,40 +34,36 @@ def get_pkg_type(os_type):
         return 'deb'
 
 def apply_overrides(ctx, config):
-    if config is None:
-        config = {}
-    else:
-        config = copy.deepcopy(config)
-
+    config = {} if config is None else copy.deepcopy(config)
     assert isinstance(config, dict), \
         "task install only supports a dictionary for configuration"
 
     project, = config.get('project', 'ceph'),
-    log.debug('project %s' % project)
-    overrides = ctx.config.get('overrides')
-    if overrides:
+    log.debug(f'project {project}')
+    if overrides := ctx.config.get('overrides'):
         install_overrides = overrides.get('install', {})
         misc.deep_merge(config, install_overrides.get(project, {}))
     return config
 
 def get_config_install(ctx, config):
     config = apply_overrides(ctx, config)
-    log.debug('install config %s' % config)
+    log.debug(f'install config {config}')
     return [(config.get('flavor', 'default'),
              config.get('tag', ''),
              config.get('branch', ''),
              config.get('sha1'))]
 
 def get_config_install_upgrade(ctx, config):
-    log.debug('install.upgrade config before override %s' % config)
+    log.debug(f'install.upgrade config before override {config}')
     configs = []
     for (role, role_config) in config.items():
         if role_config is None:
             role_config = {}
         o = apply_overrides(ctx, role_config)
 
-        log.debug('install.upgrade config ' + str(role_config) +
-                  ' and with overrides ' + str(o))
+        log.debug(
+            f'install.upgrade config {str(role_config)} and with overrides {str(o)}'
+        )
         # for install.upgrade overrides are actually defaults
         configs.append((o.get('flavor', 'default'),
                         role_config.get('tag', o.get('tag', '')),
@@ -89,15 +85,13 @@ def lookup_configs(ctx, node):
         for (key, value) in node.items():
             if key in ('install', 'install.upgrade'):
                 configs.extend(GET_CONFIG_FUNCTIONS[key](ctx, value))
-            elif key in ('overrides',):
-                pass
-            else:
+            elif key not in ('overrides',):
                 configs.extend(lookup_configs(ctx, value))
     return configs
 
 def get_sha1(ref):
     url = teuth_config.get_ceph_git_url()
-    ls_remote = misc.sh("git ls-remote " + url + " " + ref)
+    ls_remote = misc.sh(f"git ls-remote {url} {ref}")
     return ls_remote.split()[0]
 
 def task(ctx, config):
@@ -150,8 +144,9 @@ def task(ctx, config):
     log.info('Beginning buildpackages...')
     if config is None:
         config = {}
-    assert isinstance(config, dict), \
-        'task only accepts a dict for config not ' + str(config)
+    assert isinstance(
+        config, dict
+    ), f'task only accepts a dict for config not {str(config)}'
     overrides = ctx.config.get('overrides', {})
     misc.deep_merge(config, overrides.get('buildpackages', {}))
     d = os.path.join(os.path.dirname(__file__), 'buildpackages')
@@ -169,10 +164,9 @@ def task(ctx, config):
             sha1 = get_sha1(tag)
         elif branch:
             sha1 = get_sha1(branch)
-        log.info("building flavor = " + flavor + "," +
-                 " tag = " + tag + "," +
-                 " branch = " + branch + "," +
-                 " sha1 = " + sha1)
+        log.info(
+            f"building flavor = {flavor}, tag = {tag}, branch = {branch}, sha1 = {sha1}"
+        )
         self_name = 'teuthology'
         key_name = 'teuthology'
         pkg_repo = 'packages-repository'
@@ -185,17 +179,12 @@ def task(ctx, config):
             pkg_repo = teuth_config.openstack['package_repo']
         if teuth_config.openstack.has_key('server_group'):
             security_group = teuth_config.openstack['server_group']
-        target = (self_name + '-ceph-' +
-                  pkg_type + '-' +
-                  dist + '-' +
-                  arch + '-' +
-                  flavor + '-' +
-                  sha1)
+        target = f'{self_name}-ceph-{pkg_type}-{dist}-{arch}-{flavor}-{sha1}'
         openstack = OpenStack()
         openstack.set_provider()
         network = openstack.net()
         if network != "":
-            network = " OPENSTACK_NETWORK='" + network + "' "
+            network = f" OPENSTACK_NETWORK='{network}' "
         openstack.image(os_type, os_version, arch) # create if it does not exist
         build_flavor = openstack.flavor_range(
             config['min_machine'], config['good_machine'], arch)
@@ -206,7 +195,7 @@ def task(ctx, config):
             'cpus': 1,
         }, default_arch)
 
-        lock = "/tmp/buildpackages-" + sha1 + "-" + os_type + "-" + os_version
+        lock = f"/tmp/buildpackages-{sha1}-{os_type}-{os_version}"
         cmd = (". " + os.environ['HOME'] + "/.ssh_agent ; " +
                " flock --close " + lock +
                " make -C " + d +
@@ -232,14 +221,10 @@ def task(ctx, config):
                ("true" if teuth_config.canonical_tags else "false") +
                " " + target +
                " ")
-        log.info("Executing the following make command to build {} packages. " \
-                 "Note that some values in the command, like CEPH_GIT_URL " \
-                 "and BUILDPACKAGES_CANONICAL_TAGS, may differ from similar " \
-                 "command-line parameter values. This is because " \
-                 "the values used by this task are taken from the teuthology " \
-                 "configuration file. If in doubt, tear down your teuthology " \
-                 "instance and start again from scratch.".format(pkg_type))
-        log.info("buildpackages make command: " + cmd)
+        log.info(
+            f"Executing the following make command to build {pkg_type} packages. Note that some values in the command, like CEPH_GIT_URL and BUILDPACKAGES_CANONICAL_TAGS, may differ from similar command-line parameter values. This is because the values used by this task are taken from the teuthology configuration file. If in doubt, tear down your teuthology instance and start again from scratch."
+        )
+        log.info(f"buildpackages make command: {cmd}")
         misc.sh(cmd)
     teuth_config.gitbuilder_host = openstack.get_ip(pkg_repo, '')
     log.info('Finished buildpackages')

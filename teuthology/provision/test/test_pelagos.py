@@ -32,15 +32,16 @@ class TestPelagos(object):
         assert enabled == False
 
     def test_pelagos(self):
-            class context:
-                pass
 
-            ctx = context()
-            ctx.os_type ='sle'
-            ctx.os_version = '15.1'
-            with raises(Exception) as e_info:
-                teuthology.provision.reimage(ctx, 'f.q.d.n.org', 'ptype1')
-            e_str = str(e_info)
-            print("Caught exception: " +  e_str)
-            assert e_str.find("Name\sor\sservice\snot\sknown") == -1
+        class context:
+            pass
+
+        ctx = context()
+        ctx.os_type ='sle'
+        ctx.os_version = '15.1'
+        with raises(Exception) as e_info:
+            teuthology.provision.reimage(ctx, 'f.q.d.n.org', 'ptype1')
+        e_str = str(e_info)
+        print(f"Caught exception: {e_str}")
+        assert "Name\sor\sservice\snot\sknown" not in e_str
 

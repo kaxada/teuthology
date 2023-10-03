@@ -5,7 +5,7 @@ from teuthology.task import internal
 class TestInternal(object):
     def setup(self):
         self.ctx = FakeNamespace()
-        self.ctx.config = dict()
+        self.ctx.config = {}
 
     def test_buildpackages_prep(self):
         #

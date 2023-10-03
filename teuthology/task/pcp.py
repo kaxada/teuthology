@@ -41,21 +41,20 @@ class PCPArchive(PCPDataSource):
         )
 
     def get_pmlogextract_cmd(self, host):
-        cmd = [
+        return [
             'pmlogextract',
-            '-S', self._format_time(self.time_from),
-            '-T', self._format_time(self.time_until),
-            run.Raw(os.path.join(
-                self.get_archive_input_dir(host),
-                '*.0')),
+            '-S',
+            self._format_time(self.time_from),
+            '-T',
+            self._format_time(self.time_until),
+            run.Raw(os.path.join(self.get_archive_input_dir(host), '*.0')),
         ]
-        return cmd
 
     @staticmethod
     def _format_time(seconds):
         if isinstance(seconds, str):
             return seconds
-        return "@ %s" % time.asctime(time.gmtime(seconds))
+        return f"@ {time.asctime(time.gmtime(seconds))}"
 
 
 class PCPGrapher(PCPDataSource):
@@ -121,9 +120,9 @@ class GraphiteGrapher(PCPGrapher):
 
     def build_graph_urls(self):
         if not hasattr(self, 'graphs'):
-            self.graphs = dict()
+            self.graphs = {}
         for metric in self.metrics:
-            metric_dict = self.graphs.get(metric, dict())
+            metric_dict = self.graphs.get(metric, {})
             metric_dict['url'] = self.get_graph_url(metric)
             self.graphs[metric] = metric_dict
 
@@ -144,19 +143,18 @@ class GraphiteGrapher(PCPGrapher):
         loader = jinja2.loaders.FileSystemLoader(cwd)
         env = jinja2.Environment(loader=loader)
         template = env.get_template('pcp.j2')
-        data = template.render(
+        return template.render(
             job_id=self.job_id,
             graphs=self.graphs,
             mode=mode,
         )
-        return data
 
     def download_graphs(self):
         self._check_dest_dir()
         self.build_graph_urls()
         for metric in self.graphs.keys():
             url = self.graphs[metric]['url']
-            filename = self._sanitize_metric_name(metric) + '.png'
+            filename = f'{self._sanitize_metric_name(metric)}.png'
             self.graphs[metric]['file'] = graph_path = os.path.join(
                 self.dest_dir,
                 filename,
@@ -187,9 +185,9 @@ class GraphiteGrapher(PCPGrapher):
         return template.format(base_url=self.base_url, args=args)
 
     def get_target_globs(self, metric=''):
-        globs = ['*{}*'.format(host) for host in self.hosts]
+        globs = [f'*{host}*' for host in self.hosts]
         if metric:
-            globs = ['{}.{}'.format(glob, metric) for glob in globs]
+            globs = [f'{glob}.{metric}' for glob in globs]
         return globs
 
     @staticmethod
@@ -325,8 +323,7 @@ class PCP(Task):
                 log.info("Copying PCP data into archive...")
                 cmd = self.archiver.get_pmlogextract_cmd(remote.shortname)
                 archive_out_path = os.path.join(
-                    misc.get_testdir(),
-                    'pcp_archive_%s' % remote.shortname,
+                    misc.get_testdir(), f'pcp_archive_{remote.shortname}'
                 )
                 cmd.append(archive_out_path)
                 remote.run(args=cmd)

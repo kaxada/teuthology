@@ -144,7 +144,7 @@ class PhysicalConsole(RemoteConsole):
         t = timeout or self.timeout
         log.debug('Waiting for login prompt on {s}'.format(s=self.shortname))
         # wait for login prompt to indicate boot completed
-        for i in range(0, attempts):
+        for _ in range(0, attempts):
             start = time.time()
             while time.time() - start < t:
                 child = self._get_console(readonly=False)
@@ -161,7 +161,7 @@ class PhysicalConsole(RemoteConsole):
                 self._exit_session(child)
                 if r == 0:
                     return
-        raise ConsoleError("Did not get a login prompt from %s!" % self.name)
+        raise ConsoleError(f"Did not get a login prompt from {self.name}!")
 
     def check_power(self, state, timeout=None):
         """
@@ -169,11 +169,7 @@ class PhysicalConsole(RemoteConsole):
         """
         timeout = timeout or self.timeout
         sleep_time = 4.0
-        with safe_while(
-                sleep=sleep_time,
-                tries=int(timeout / sleep_time),
-                _raise=False,
-                action='wait for power %s' % state) as proceed:
+        with safe_while(sleep=sleep_time, tries=int(timeout / sleep_time), _raise=False, action=f'wait for power {state}') as proceed:
             while proceed():
                 c = self._pexpect_spawn_ipmi('power status')
                 r = c.expect(['Chassis Power is {s}'.format(

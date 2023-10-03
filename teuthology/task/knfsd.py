@@ -71,19 +71,21 @@ def task(ctx, config):
     log.info('Exporting nfs server...')
 
     if config is None:
-        config = dict(('client.{id}'.format(id=id_), None)
-                  for id_ in teuthology.all_roles_of_type(ctx.cluster, 'client'))
+        config = {
+            'client.{id}'.format(id=id_): None
+            for id_ in teuthology.all_roles_of_type(ctx.cluster, 'client')
+        }
     elif isinstance(config, list):
-        config = dict((name, None) for name in config)
+        config = {name: None for name in config}
 
     clients = list(teuthology.get_clients(ctx=ctx, roles=config.keys()))
 
     for id_, remote in clients:
         mnt = os.path.join(teuthology.get_testdir(ctx), 'mnt.{id}'.format(id=id_))
-        client_config = config.get("client.%s" % id_)
+        client_config = config.get(f"client.{id_}")
         if client_config is None:
             client_config = {}
-        log.debug("Client client.%s config is %s" % (id_, client_config))
+        log.debug(f"Client client.{id_} config is {client_config}")
 
         if client_config.get('options') is not None:
             opts = ','.join(client_config.get('options'))
@@ -95,7 +97,7 @@ def task(ctx, config):
         wildcard = False
         if client_config.get('wildcard') is not None:
             wildcard = True
-        
+
         log.info('Exporting knfsd client.{id} at {remote} *:{mnt} ({opt})...'.format(
                 id=id_, remote=remote, mnt=mnt, opt=opts))
 

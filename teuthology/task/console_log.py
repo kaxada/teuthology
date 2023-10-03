@@ -48,8 +48,8 @@ class ConsoleLog(Task):
         if not self.enabled:
             return
         super(ConsoleLog, self).setup()
-        self.processes = dict()
-        self.signal_handlers = list()
+        self.processes = {}
+        self.signal_handlers = []
         self.setup_archive()
 
     def setup_archive(self):

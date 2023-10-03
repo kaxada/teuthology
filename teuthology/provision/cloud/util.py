@@ -25,7 +25,7 @@ def combine_dicts(list_of_dicts, func):
                           dict
     :returns:             The new, merged, dict
     """
-    new_dict = dict()
+    new_dict = {}
     for item in list_of_dicts:
         selective_update(new_dict, item, func)
     return new_dict
@@ -67,7 +67,7 @@ class AuthToken(object):
         self.name = name
         self.directory = directory
         self.path = os.path.join(directory, name)
-        self.lock_path = "%s.lock" % self.path
+        self.lock_path = f"{self.path}.lock"
         self.expires = None
         self.value = None
         self.endpoint = None

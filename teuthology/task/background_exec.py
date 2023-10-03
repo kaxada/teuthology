@@ -56,14 +56,18 @@ def task(ctx, config):
         tasks[remote.name] = remote.run(
             args=[
                 'sudo',
-                'TESTDIR=%s' % testdir,
-                'daemon-helper', 'kill', '--kill-group',
-                'bash', '-c', cmd,
+                f'TESTDIR={testdir}',
+                'daemon-helper',
+                'kill',
+                '--kill-group',
+                'bash',
+                '-c',
+                cmd,
             ],
             wait=False,
             stdin=run.PIPE,
             check_status=False,
-            logger=log.getChild(remote.name)
+            logger=log.getChild(remote.name),
         )
 
     try:

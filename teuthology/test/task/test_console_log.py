@@ -23,16 +23,13 @@ class TestConsoleLog(TestTask):
         self.ctx.cluster = Cluster()
         self.ctx.cluster.add(Remote('user@remote1'), ['role1'])
         self.ctx.cluster.add(Remote('user@remote2'), ['role2'])
-        self.ctx.config = dict()
+        self.ctx.config = {}
         self.ctx.archive = '/fake/path'
-        self.task_config = dict()
+        self.task_config = {}
         self.start_patchers()
 
     def start_patchers(self):
-        self.patchers = dict()
-        self.patchers['makedirs'] = patch(
-            'teuthology.task.console_log.os.makedirs',
-        )
+        self.patchers = {'makedirs': patch('teuthology.task.console_log.os.makedirs')}
         self.patchers['is_vm'] = patch(
             'teuthology.lock.query.is_vm',
         )
@@ -40,7 +37,7 @@ class TestConsoleLog(TestTask):
         self.patchers['get_status'] = patch(
             'teuthology.lock.query.get_status',
         )
-        self.mocks = dict()
+        self.mocks = {}
         for name, patcher in self.patchers.items():
             self.mocks[name] = patcher.start()
         self.mocks['is_vm'].return_value = False
@@ -74,8 +71,7 @@ class TestConsoleLog(TestTask):
         with self.klass(self.ctx, self.task_config) as task:
             assert len(task.processes) == len(self.ctx.cluster.remotes)
             for remote in task.cluster.remotes.keys():
-                dest_path = os.path.join(
-                    self.ctx.archive, '%s.log' % remote.shortname)
+                dest_path = os.path.join(self.ctx.archive, f'{remote.shortname}.log')
                 assert remote.console.spawn_sol_log.called_once_with(
                     dest_path=dest_path)
 

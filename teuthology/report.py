@@ -22,8 +22,7 @@ def init_logging():
 
     :returns: a logger
     """
-    log = logging.getLogger(__name__)
-    return log
+    return logging.getLogger(__name__)
 
 
 def main(args):
@@ -31,8 +30,7 @@ def main(args):
     job = args['--job']
     dead = args['--dead']
     refresh = dead or args['--refresh']
-    server = args['--server']
-    if server:
+    if server := args['--server']:
         config.results_server = server
     if args['--verbose']:
         teuthology.log.setLevel(logging.DEBUG)
@@ -47,7 +45,7 @@ def main(args):
     if dead and not job:
         for run_name in run:
             try_mark_run_dead(run[0])
-    elif dead and len(run) == 1 and job:
+    elif dead and len(run) == 1:
         reporter.report_jobs(run[0], job, dead=True)
     elif len(run) == 1 and job:
         reporter.report_jobs(run[0], job)
@@ -123,12 +121,11 @@ class ResultsSerializer(object):
         :returns:        A JSON object.
         """
         job_info = self.job_info(run_name, job_id, pretty)
-        if pretty:
-            job_json = json.dumps(job_info, sort_keys=True, indent=4)
-        else:
-            job_json = json.dumps(job_info)
-
-        return job_json
+        return (
+            json.dumps(job_info, sort_keys=True, indent=4)
+            if pretty
+            else json.dumps(job_info)
+        )
 
     def jobs_for_run(self, run_name):
         """
@@ -173,12 +170,11 @@ class ResultsSerializer(object):
         archive_base = self.archive_base
         if not os.path.isdir(archive_base):
             return []
-        runs = []
-        for run_name in os.listdir(archive_base):
-            if not os.path.isdir(os.path.join(archive_base, run_name)):
-                continue
-            runs.append(run_name)
-        return runs
+        return [
+            run_name
+            for run_name in os.listdir(archive_base)
+            if os.path.isdir(os.path.join(archive_base, run_name))
+        ]
 
 
 class ResultsReporter(object):
@@ -258,7 +254,7 @@ class ResultsReporter(object):
                     self.log.info("    already present; skipped")
                     return 0
             self.report_jobs(run_name, jobs.keys(), dead=dead)
-        elif not jobs:
+        else:
             self.log.debug("    no jobs; skipped")
         return len(jobs)
 
@@ -294,7 +290,7 @@ class ResultsReporter(object):
 
         inc = random.uniform(0, 1)
         with safe_while(
-                sleep=1, increment=inc, action=f'report job {job_id}') as proceed:
+                    sleep=1, increment=inc, action=f'report job {job_id}') as proceed:
             while proceed():
                 response = self.session.post(run_uri, data=job_json, headers=headers)
 
@@ -306,26 +302,23 @@ class ResultsReporter(object):
                 try:
                     resp_json = response.json()
                 except ValueError:
-                    resp_json = dict()
+                    resp_json = {}
 
-                if resp_json:
-                    msg = resp_json.get('message', '')
-                else:
-                    msg = response.text
-
-                if msg and msg.endswith('already exists'):
-                    job_uri = os.path.join(run_uri, job_id, '')
-                    response = self.session.put(job_uri, data=job_json,
-                                                headers=headers)
-                    if response.status_code == 200:
-                        return
-                elif msg:
-                    self.log.error(
-                        "POST to {uri} failed with status {status}: {msg}".format(
-                            uri=run_uri,
-                            status=response.status_code,
-                            msg=msg,
-                        ))
+                msg = resp_json.get('message', '') if resp_json else response.text
+                if msg:
+                    if msg.endswith('already exists'):
+                        job_uri = os.path.join(run_uri, job_id, '')
+                        response = self.session.put(job_uri, data=job_json,
+                                                    headers=headers)
+                        if response.status_code == 200:
+                            return
+                    else:
+                        self.log.error(
+                            "POST to {uri} failed with status {status}: {msg}".format(
+                                uri=run_uri,
+                                status=response.status_code,
+                                msg=msg,
+                            ))
         response.raise_for_status()
 
     @property
@@ -392,10 +385,7 @@ class ResultsReporter(object):
         # parse log lines like
         # 2018-07-27T00:30:55.967 INFO:teuthology.results:subset: '35/999'
         msg = line.split(' ', 1)[1].split(':', 2)[-1]
-        if not msg.startswith(prefix):
-            return None
-        else:
-            return msg[len(prefix):].strip(" '")
+        return None if not msg.startswith(prefix) else msg[len(prefix):].strip(" '")
 
     def get_rerun_conf(self, run_name):
         log_path = os.path.join(self.archive_base, run_name, 'results.log')

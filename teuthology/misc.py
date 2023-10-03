@@ -53,14 +53,11 @@ def canonicalize_hostname(hostname, user='ubuntu'):
         lab_domain=config.lab_domain.replace('.', '\.'))
     match = re.match(hostname_expr, hostname)
     if _is_ipv4(hostname) or _is_ipv6(hostname):
-        return "%s@%s" % (user, hostname)
+        return f"{user}@{hostname}"
     if match:
         match_d = match.groupdict()
         shortname = match_d['shortname']
-        if user is None:
-            user_ = user
-        else:
-            user_ = match_d.get('user') or user
+        user_ = user if user is None else match_d.get('user') or user
     else:
         shortname = host_shortname(hostname)
         user_ = user
@@ -68,13 +65,12 @@ def canonicalize_hostname(hostname, user='ubuntu'):
     user_at = user_.strip('@') + '@' if user_ else ''
     domain = config.lab_domain
     if domain and not shortname.endswith('.'):
-        domain = '.' + domain
-    ret = '{user_at}{short}{domain}'.format(
+        domain = f'.{domain}'
+    return '{user_at}{short}{domain}'.format(
         user_at=user_at,
         short=shortname,
         domain=domain,
     )
-    return ret
 
 
 def decanonicalize_hostname(hostname):
@@ -82,8 +78,7 @@ def decanonicalize_hostname(hostname):
     if config.lab_domain:
         lab_domain='\.' + config.lab_domain.replace('.', '\.')
     hostname_expr = hostname_expr_templ.format(lab_domain=lab_domain)
-    match = re.match(hostname_expr, hostname)
-    if match:
+    if match := re.match(hostname_expr, hostname):
         hostname = match.groupdict()['shortname']
     return hostname
 
@@ -124,7 +119,7 @@ def merge_configs(config_paths):
     """ Takes one or many paths to yaml config files and merges them
         together, returning the result.
     """
-    conf_dict = dict()
+    conf_dict = {}
     for conf_path in config_paths:
         if not os.path.exists(conf_path):
             log.debug("The config path {0} does not exist, skipping.".format(conf_path))
@@ -148,10 +143,7 @@ def get_testdir(ctx=None):
     """
     if 'test_path' in config:
         return config['test_path']
-    return config.get(
-        'test_path',
-        '/home/%s/cephtest' % get_test_user()
-    )
+    return config.get('test_path', f'/home/{get_test_user()}/cephtest')
 
 
 def get_test_user(ctx=None):
@@ -359,7 +351,7 @@ def ceph_role(role):
     Return the ceph name for the role, without any cluster prefix, e.g. osd.0.
     """
     _, type_, id_ = split_role(role)
-    return type_ + '.' + id_
+    return f'{type_}.{id_}'
 
 
 def split_role(role):
@@ -410,8 +402,7 @@ def all_roles(cluster):
     :param cluster: Cluster extracted from the ctx.
     """
     for _, roles_for_host in cluster.remotes.items():
-        for name in roles_for_host:
-            yield name
+        yield from roles_for_host
 
 
 def all_roles_of_type(cluster, type_):
@@ -423,8 +414,7 @@ def all_roles_of_type(cluster, type_):
     :param type_: role type
     """
     for _, roles_for_host in cluster.remotes.items():
-        for id_ in roles_of_type(roles_for_host, type_):
-            yield id_
+        yield from roles_of_type(roles_for_host, type_)
 
 
 def is_type(type_, cluster=None):
@@ -458,9 +448,10 @@ def num_instances_of_type(cluster, type_, ceph_cluster='ceph'):
     remotes_and_roles = cluster.remotes.items()
     roles = [roles for (remote, roles) in remotes_and_roles]
     is_ceph_type = is_type(type_, ceph_cluster)
-    num = sum(sum(1 for role in hostroles if is_ceph_type(role))
-              for hostroles in roles)
-    return num
+    return sum(
+        sum(1 for role in hostroles if is_ceph_type(role))
+        for hostroles in roles
+    )
 
 
 def create_simple_monmap(ctx, remote, conf, path=None,
@@ -701,7 +692,7 @@ def create_file(remote, path, data="", permissions=str(644), sudo=False):
     ])
     remote.sh(args)
     # now write out the data if any was passed in
-    if "" != data:
+    if data != "":
         append_lines_to_file(remote, path, data, sudo)
 
 
@@ -779,7 +770,7 @@ def pull_directory_tarball(remote, remotedir, localfile):
 
 def get_wwn_id_map(remote, devs):
     log.warning("Entering get_wwn_id_map, a deprecated function that will be removed")
-    return dict((d, d) for d in devs)
+    return {d: d for d in devs}
 
 
 def get_scratch_devices(remote):
@@ -797,7 +788,7 @@ def get_scratch_devices(remote):
     for dev in devs:
         if 'vda' in dev:
             devs.remove(dev)
-            log.warning("Removing root device: %s from device list" % dev)
+            log.warning(f"Removing root device: {dev} from device list")
 
     log.debug('devs={d}'.format(d=devs))
 
@@ -807,23 +798,26 @@ def get_scratch_devices(remote):
             # FIXME: Split this into multiple calls.
             remote.run(
                 args=[
-                    # node exists
                     'stat',
                     dev,
                     run.Raw('&&'),
-                    # readable
-                    'sudo', 'dd', 'if=%s' % dev, 'of=/dev/null', 'count=1',
+                    'sudo',
+                    'dd',
+                    f'if={dev}',
+                    'of=/dev/null',
+                    'count=1',
                     run.Raw('&&'),
-                    # not mounted
                     run.Raw('!'),
                     'mount',
                     run.Raw('|'),
-                    'grep', '-q', dev,
+                    'grep',
+                    '-q',
+                    dev,
                 ]
             )
             retval.append(dev)
         except CommandFailedError:
-            log.debug("get_scratch_devices: %s is in use" % dev)
+            log.debug(f"get_scratch_devices: {dev} is in use")
     return retval
 
 
@@ -837,10 +831,12 @@ def wait_until_healthy(ctx, remote, ceph_cluster='ceph', use_sudo=False):
     cmd = ['ceph', '--cluster', ceph_cluster, 'health']
     if use_sudo:
         cmd.insert(0, 'sudo')
-    args = ['adjust-ulimits',
-            'ceph-coverage',
-            '{tdir}/archive/coverage'.format(tdir=testdir)]
-    args.extend(cmd)
+    args = [
+        'adjust-ulimits',
+        'ceph-coverage',
+        '{tdir}/archive/coverage'.format(tdir=testdir),
+        *cmd,
+    ]
     with safe_while(tries=(900 // 6), action="wait_until_healthy") as proceed:
         while proceed():
             out = remote.sh(args, logger=log.getChild('health'))
@@ -919,22 +915,15 @@ def reconnect(ctx, timeout, remotes=None):
     log.info('Re-opening connections...')
     starttime = time.time()
 
-    if remotes:
-        need_reconnect = remotes
-    else:
-        need_reconnect = list(ctx.cluster.remotes.keys())
-
+    need_reconnect = remotes if remotes else list(ctx.cluster.remotes.keys())
     while need_reconnect:
         for remote in need_reconnect:
             log.info('trying to connect to %s', remote.name)
-            success = remote.reconnect()
-            if not success:
-                if time.time() - starttime > timeout:
-                    raise RuntimeError("Could not reconnect to %s" %
-                                       remote.name)
-            else:
+            if success := remote.reconnect():
                 need_reconnect.remove(remote)
 
+            elif time.time() - starttime > timeout:
+                raise RuntimeError(f"Could not reconnect to {remote.name}")
         log.debug('waited {elapsed}'.format(
             elapsed=str(time.time() - starttime)))
         time.sleep(1)
@@ -956,7 +945,7 @@ def get_user():
     """
     Return the username in the format user@host.
     """
-    return getpass.getuser() + '@' + socket.gethostname()
+    return f'{getpass.getuser()}@{socket.gethostname()}'
 
 
 def get_mon_names(ctx, cluster='ceph'):
@@ -973,8 +962,7 @@ def get_first_mon(ctx, config, cluster='ceph'):
     """
     return the "first" mon role (alphanumerically, for lack of anything better)
     """
-    mons = get_mon_names(ctx, cluster)
-    if mons:
+    if mons := get_mon_names(ctx, cluster):
         return sorted(mons)[0]
     assert False, 'no mon for cluster found'
 
@@ -987,12 +975,12 @@ def replace_all_with_clients(cluster, config):
     assert isinstance(config, dict), 'config must be a dict'
     if 'all' not in config:
         return config
-    norm_config = {}
     assert len(config) == 1, \
         "config cannot have 'all' and specific clients listed"
-    for client in all_roles_of_type(cluster, 'client'):
-        norm_config['client.{id}'.format(id=client)] = config['all']
-    return norm_config
+    return {
+        'client.{id}'.format(id=client): config['all']
+        for client in all_roles_of_type(cluster, 'client')
+    }
 
 
 def deep_merge(a, b):
@@ -1014,10 +1002,7 @@ def deep_merge(a, b):
     if isinstance(a, dict):
         assert isinstance(b, dict)
         for (k, v) in b.items():
-            if k in a:
-                a[k] = deep_merge(a[k], v)
-            else:
-                a[k] = v
+            a[k] = deep_merge(a[k], v) if k in a else v
         return a
     return b
 
@@ -1092,22 +1077,16 @@ def ssh_keyscan(hostnames, _raise=True):
         raise TypeError("'hostnames' must be a list")
     hostnames = [canonicalize_hostname(name, user=None) for name in
                  hostnames]
-    keys_dict = dict()
+    keys_dict = {}
     for hostname in hostnames:
-        with safe_while(
-            sleep=1,
-            tries=5 if _raise else 1,
-            _raise=_raise,
-            action="ssh_keyscan " + hostname,
-        ) as proceed:
+        with safe_while(sleep=1, tries=5 if _raise else 1, _raise=_raise, action=f"ssh_keyscan {hostname}") as proceed:
             while proceed():
-                key = _ssh_keyscan(hostname)
-                if key:
+                if key := _ssh_keyscan(hostname):
                     keys_dict[hostname] = key
                     break
     if len(keys_dict) != len(hostnames):
         missing = set(hostnames) - set(keys_dict.keys())
-        msg = "Unable to scan these host keys: %s" % ' '.join(missing)
+        msg = f"Unable to scan these host keys: {' '.join(missing)}"
         if not _raise:
             log.warning(msg)
         else:
@@ -1145,22 +1124,21 @@ def ssh_keyscan_wait(hostname):
     False otherwise. Try again if ssh-keyscan timesout.
     :param hostname: on which ssh-keyscan is run
     """
-    with safe_while(sleep=6, tries=100, _raise=False,
-                    action="ssh_keyscan_wait " + hostname) as proceed:
+    with safe_while(sleep=6, tries=100, _raise=False, action=f"ssh_keyscan_wait {hostname}") as proceed:
         success = False
         while proceed():
             key = _ssh_keyscan(hostname)
             if key:
                 success = True
                 break
-            log.info("try ssh_keyscan again for " + str(hostname))
+            log.info(f"try ssh_keyscan again for {str(hostname)}")
         return success
 
 def stop_daemons_of_type(ctx, type_, cluster='ceph'):
     """
     :param type_: type of daemons to be stopped.
     """
-    log.info('Shutting down %s daemons...' % type_)
+    log.info(f'Shutting down {type_} daemons...')
     exc = None
     for daemon in ctx.daemons.iter_daemons_of_role(type_, cluster):
         try:
@@ -1183,7 +1161,7 @@ def get_system_type(remote, distro=False, version=False):
     Finally, if unknown, return the unfiltered distro (from lsb_release -is)
     """
     system_value = remote.sh('sudo lsb_release -is').strip()
-    log.debug("System to be installed: %s" % system_value)
+    log.debug(f"System to be installed: {system_value}")
     if version:
         version = remote.sh('sudo lsb_release -rs').strip()
     if distro and version:
@@ -1242,12 +1220,15 @@ def get_multi_machine_types(machinetype):
     """
     Converts machine type string to list based on common deliminators
     """
-    machinetypes = []
     machine_type_deliminator = [',', ' ', '\t']
-    for deliminator in machine_type_deliminator:
-        if deliminator in machinetype:
-            machinetypes = machinetype.split(deliminator)
-            break
+    machinetypes = next(
+        (
+            machinetype.split(deliminator)
+            for deliminator in machine_type_deliminator
+            if deliminator in machinetype
+        ),
+        [],
+    )
     if not machinetypes:
         machinetypes.append(machinetype)
     return machinetypes
@@ -1279,10 +1260,10 @@ def is_in_dict(searchkey, searchval, d):
     """
     val = d.get(searchkey, None)
     if isinstance(val, dict) and isinstance(searchval, dict):
-        for foundkey, foundval in searchval.items():
-            if not is_in_dict(foundkey, foundval, val):
-                return False
-        return True
+        return all(
+            is_in_dict(foundkey, foundval, val)
+            for foundkey, foundval in searchval.items()
+        )
     else:
         return searchval == val
 
@@ -1293,7 +1274,7 @@ def sh(command, log_limit=1024, cwd=None, env=None):
     stdout).  If the command fails, raise an exception. The command
     and its output are logged, on success and on error.
     """
-    log.debug(":sh: " + command)
+    log.debug(f":sh: {command}")
     proc = subprocess.Popen(
         args=command,
         cwd=cwd,
@@ -1302,8 +1283,8 @@ def sh(command, log_limit=1024, cwd=None, env=None):
         stderr=subprocess.STDOUT,
         shell=True,
         bufsize=1)
-    lines = []
     truncated = False
+    lines = []
     with proc.stdout:
         for line in proc.stdout:
             line = line.decode()
@@ -1311,17 +1292,17 @@ def sh(command, log_limit=1024, cwd=None, env=None):
             line = line.rstrip()
             if len(line) > log_limit:
                 truncated = True
-                log.debug(line[:log_limit] +
-                          "... (truncated to the first " + str(log_limit) +
-                          " characters)")
+                log.debug(
+                    f"{line[:log_limit]}... (truncated to the first {str(log_limit)} characters)"
+                )
             else:
                 log.debug(line)
     output = "".join(lines)
     if proc.wait() != 0:
         if truncated:
-            log.error(command + " replay full stdout/stderr"
-                      " because an error occurred and some of"
-                      " it was truncated")
+            log.error(
+                f"{command} replay full stdout/stderr because an error occurred and some of it was truncated"
+            )
             log.error(output)
         raise subprocess.CalledProcessError(
             returncode=proc.returncode,

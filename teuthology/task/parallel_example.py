@@ -15,7 +15,7 @@ def sequential_test(ctx, config):
     """Example contextmanager that executes a command on remote hosts sequentially."""
     for role in config:
         """Create a cluster composed of all hosts with the given role, and run the command on them sequentially."""
-        log.info('Executing command on all hosts sequentially with role "%s"' % role)
+        log.info(f'Executing command on all hosts sequentially with role "{role}"')
         ctx.cluster.only(role).run(args=['sleep', '5', run.Raw(';'), 'date', run.Raw(';'), 'hostname'])
     yield
 
@@ -24,14 +24,14 @@ def parallel_test(ctx, config):
     """Example contextmanager that executes a command on remote hosts in parallel."""
     for role in config:
         """Create a cluster composed of all hosts with the given role, and run the command on them concurrently."""
-        log.info('Executing command on all hosts concurrently with role "%s"' % role)
+        log.info(f'Executing command on all hosts concurrently with role "{role}"')
         cluster = ctx.cluster.only(role)
         nodes = {}
         for remote in cluster.remotes.keys():
             """Call run for each remote host, but use 'wait=False' to have it return immediately."""
             proc = remote.run(args=['sleep', '5', run.Raw(';'), 'date', run.Raw(';'), 'hostname'], wait=False,)
             nodes[remote.name] = proc
-        for name, proc in nodes.items():
+        for proc in nodes.values():
             """Wait for each process to finish before yielding and allowing other contextmanagers to run."""
             proc.wait()
     yield

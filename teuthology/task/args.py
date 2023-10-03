@@ -6,18 +6,18 @@ def gen_args(name, args):
     Called from argify to generate arguments.
     """
     usage = [""]
-    usage += [name + ':']
+    usage += [f'{name}:']
     usage += \
         ["    {key}: <{usage}> ({default})".format(
             key=key, usage=_usage, default=default)
          for (key, _usage, default, _) in args]
     usage.append('')
-    usage.append(name + ':')
+    usage.append(f'{name}:')
     usage += \
         ["    {key}: {default}".format(
                 key = key, default = default)
          for (key, _, default, _) in args]
-    usage = '\n'.join('    ' + i for i in usage)
+    usage = '\n'.join(f'    {i}' for i in usage)
     def ret(config):
         """
         return an object with attributes set from args. 
@@ -34,6 +34,7 @@ def gen_args(name, args):
             else:
                 setattr(obj, key, conv(default))
         return obj
+
     return usage, ret
 
 def argify(name, args):

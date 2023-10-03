@@ -66,9 +66,9 @@ def test_retry(m_sleep):
 
 def get_fake_obj(mock_args=None, attributes=None):
     if mock_args is None:
-        mock_args = dict()
+        mock_args = {}
     if attributes is None:
-        attributes = dict()
+        attributes = {}
     obj = Mock(**mock_args)
     for name, value in attributes.items():
         setattr(obj, name, value)
@@ -81,11 +81,12 @@ class TestOpenStackBase(object):
         self.start_patchers()
 
     def start_patchers(self):
-        self.patchers = dict()
-        self.patchers['m_list_images'] = patch(
-            'libcloud.compute.drivers.openstack'
-            '.OpenStackNodeDriver.list_images'
-        )
+        self.patchers = {
+            'm_list_images': patch(
+                'libcloud.compute.drivers.openstack'
+                '.OpenStackNodeDriver.list_images'
+            )
+        }
         self.patchers['m_list_sizes'] = patch(
             'libcloud.compute.drivers.openstack'
             '.OpenStackNodeDriver.list_sizes'
@@ -154,7 +155,7 @@ class TestOpenStackBase(object):
         self.patchers['m_get'] = patch(
             'requests.get'
         )
-        self.mocks = dict()
+        self.mocks = {}
         for name, patcher in self.patchers.items():
             self.mocks[name] = patcher.start()
         self.mocks['m_get_endpoint'].return_value = 'endpoint'
@@ -219,7 +220,7 @@ class TestOpenStackProvider(TestOpenStackBase):
         self.mocks['m_ex_list_networks'].side_effect = AttributeError
         obj = cloud.get_provider('my_provider')
         assert not hasattr(obj, '_networks')
-        assert obj.networks == list()
+        assert obj.networks == []
         assert hasattr(obj, '_networks')
 
     def test_security_groups(self):
@@ -231,7 +232,7 @@ class TestOpenStackProvider(TestOpenStackBase):
         self.mocks['m_ex_list_security_groups'].side_effect = AttributeError
         obj = cloud.get_provider('my_provider')
         assert not hasattr(obj, '_security_groups')
-        assert obj.security_groups == list()
+        assert obj.security_groups == []
         assert hasattr(obj, '_security_groups')
 
 
@@ -242,8 +243,8 @@ class TestOpenStackCustomProvisioner(TestOpenStackBase):
             os_version='16.04', conf=None, test_conf=None):
 
         if test_conf:
-            yaml_file = os.path.dirname(__file__) + '/' + test_conf
-            print("Reading conf: %s" % yaml_file)
+            yaml_file = f'{os.path.dirname(__file__)}/{test_conf}'
+            print(f"Reading conf: {yaml_file}")
             with open(yaml_file) as f:
                 teuth_conf=yaml.safe_load(f)
             print(teuth_conf)
@@ -296,7 +297,7 @@ class TestOpenStackCustomProvisioner(TestOpenStackBase):
         print(">>>> ", obj.provider)
         print(obj.userdata)
         if conf and 'path' in conf and conf['path']:
-            assert userdata['runcmd'][0:len(conf['runcmd_head'])] == conf['runcmd_head']
+            assert userdata['runcmd'][:len(conf['runcmd_head'])] == conf['runcmd_head']
             assert userdata['bootcmd'] == [
                 'SuSEfirewall2 stop || true',
                 'service firewalld stop || true',
@@ -311,13 +312,12 @@ class TestOpenStackCustomProvisioner(TestOpenStackBase):
             assert userdata['ssh_authorized_keys'][-1] == conf['user_ssh_pubkey']
             if 'ssh_authorized_keys' in conf:
                 keys = conf['ssh_authorized_keys']
-                assert userdata['ssh_authorized_keys'][0:len(keys)] == keys
+                assert userdata['ssh_authorized_keys'][:len(keys)] == keys
+        elif 'ssh_authorized_keys' in conf:
+            keys = conf['ssh_authorized_keys']
+            assert userdata['ssh_authorized_keys'][:len(keys)] == keys
         else:
-            if 'ssh_authorized_keys' in conf:
-                keys = conf['ssh_authorized_keys']
-                assert userdata['ssh_authorized_keys'][0:len(keys)] == keys
-            else:
-                assert 'ssh_authorized_keys' not in userdata
+            assert 'ssh_authorized_keys' not in userdata
 
     @mark.parametrize(
         "conf",
@@ -378,20 +378,14 @@ class TestOpenStackProvisioner(TestOpenStackBase):
             self.get_obj()
             assert len(m_read_conf.call_args_list) == 1
 
-    @mark.parametrize(
-        'input_conf',
-        [
-            dict(machine=dict(
+    @mark.parametrize('input_conf', [dict(machine=dict(
                 disk=42,
                 ram=9001,
                 cpus=3,
-            )),
-            dict(volumes=dict(
+            )), dict(volumes=dict(
                 count=3,
                 size=100,
-            )),
-            dict(),
-            dict(
+            )), {}, dict(
                 machine=dict(
                     disk=1,
                     ram=2,
@@ -401,14 +395,11 @@ class TestOpenStackProvisioner(TestOpenStackBase):
                     count=4,
                     size=5,
                 )
-            ),
-            dict(
+            ), dict(
                 machine=dict(
                     disk=100,
                 ),
-            ),
-        ]
-    )
+            )])
     def test_read_conf(self, input_conf):
         obj = self.get_obj(conf=input_conf)
         for topic in ['machine', 'volumes']:
@@ -418,49 +409,28 @@ class TestOpenStackProvisioner(TestOpenStackBase):
             )
             assert obj.conf[topic] == combined[topic]
 
-    @mark.parametrize(
-        'input_conf, expected_machine, expected_vols',
-        [
-            [
+    @mark.parametrize('input_conf, expected_machine, expected_vols', [[
                 dict(openstack=[
                     dict(machine=dict(disk=64, ram=10000, cpus=3)),
                     dict(volumes=dict(count=1, size=1)),
                 ]),
                 dict(disk=64, ram=10000, cpus=3),
                 dict(count=1, size=1),
-            ],
-            [
-                dict(openstack=[
-                    dict(machine=dict(cpus=3)),
-                    dict(machine=dict(disk=1, ram=9000)),
-                    dict(machine=dict(disk=50, ram=2, cpus=1)),
-                    dict(machine=dict()),
-                    dict(volumes=dict()),
-                    dict(volumes=dict(count=0, size=0)),
-                    dict(volumes=dict(count=1, size=0)),
-                    dict(volumes=dict(size=1)),
-                ]),
-                dict(disk=50, ram=9000, cpus=3),
-                dict(count=1, size=1),
-            ],
-            [
+            ], [dict(openstack=[dict(machine=dict(cpus=3)), dict(machine=dict(disk=1, ram=9000)), dict(machine=dict(disk=50, ram=2, cpus=1)), dict(machine={}), dict(volumes={}), dict(volumes=dict(count=0, size=0)), dict(volumes=dict(count=1, size=0)), dict(volumes=dict(size=1))]), dict(disk=50, ram=9000, cpus=3), dict(count=1, size=1)], [
                 dict(openstack=[
                     dict(volumes=dict(count=3, size=30)),
                     dict(volumes=dict(size=50)),
                 ]),
                 None,
                 dict(count=3, size=50),
-            ],
-            [
+            ], [
                 dict(openstack=[
                     dict(machine=dict(disk=100)),
                     dict(volumes=dict(count=3, size=30)),
                 ]),
                 dict(disk=100, ram=8000, cpus=1),
                 dict(count=3, size=30),
-            ],
-        ]
-    )
+            ]])
     def test_read_conf_legacy(
             self, input_conf, expected_machine, expected_vols):
         obj = self.get_obj(conf=input_conf)
@@ -484,11 +454,7 @@ class TestOpenStackProvisioner(TestOpenStackBase):
             dict(name='ubuntu-16.04'),
             dict(name='centos-7.0'),
         ]
-        fake_images = list()
-        for item in image_attrs:
-            fake_images.append(
-                get_fake_obj(attributes=item)
-            )
+        fake_images = [get_fake_obj(attributes=item) for item in image_attrs]
         obj = self.get_obj(os_type=os_type, os_version=os_version)
         self.mocks['m_list_images'].return_value = fake_images
         if should_find:
@@ -517,11 +483,7 @@ class TestOpenStackProvisioner(TestOpenStackBase):
             dict(ram=2**16, disk=20, vcpus=99, name='s1'),
             dict(ram=2**16, disk=9999, vcpus=1, name='s2'),
         ]
-        fake_sizes = list()
-        for item in size_attrs:
-            fake_sizes.append(
-                get_fake_obj(attributes=item)
-            )
+        fake_sizes = [get_fake_obj(attributes=item) for item in size_attrs]
         base_spec = dict(machine=dict(
             ram=1,
             disk=1,
@@ -548,11 +510,9 @@ class TestOpenStackProvisioner(TestOpenStackBase):
     )
     def test_security_groups(self, wanted_groups):
         group_names = ['group0', 'group1', 'group2']
-        fake_groups = list()
-        for name in group_names:
-            fake_groups.append(
-                get_fake_obj(attributes=dict(name=name))
-            )
+        fake_groups = [
+            get_fake_obj(attributes=dict(name=name)) for name in group_names
+        ]
         self.mocks['m_ex_list_security_groups'].return_value = fake_groups
         obj = self.get_obj()
         assert obj.security_groups is None
@@ -561,9 +521,7 @@ class TestOpenStackProvisioner(TestOpenStackBase):
         assert [g.name for g in obj.security_groups] == wanted_groups
 
     def test_security_groups_exc(self):
-        fake_groups = [
-            get_fake_obj(attributes=dict(name='sg')) for i in range(2)
-        ]
+        fake_groups = [get_fake_obj(attributes=dict(name='sg')) for _ in range(2)]
         obj = self.get_obj()
         obj.provider.conf['security_groups'] = ['sg']
         with raises(RuntimeError):
@@ -603,7 +561,7 @@ class TestOpenStackProvisioner(TestOpenStackBase):
     )
     def test_node(self, wanted_name, should_find, exception):
         node_names = ['node0', 'node1', 'node2', 'node2']
-        fake_nodes = list()
+        fake_nodes = []
         for name in node_names:
             fake_nodes.append(
                 get_fake_obj(attributes=dict(name=name))
@@ -733,7 +691,7 @@ class TestOpenStackProvisioner(TestOpenStackBase):
             for i in range(count):
                 vol_size, vol_name = create_calls[i][0]
                 assert vol_size == size
-                assert vol_name == '%s_%s' % (obj.name, i)
+                assert vol_name == f'{obj.name}_{i}'
                 assert attach_calls[i][0][0] is obj._node
                 assert attach_calls[i][1]['device'] is None
 
@@ -741,9 +699,9 @@ class TestOpenStackProvisioner(TestOpenStackBase):
     def test_destroy_volumes(self, count, size, should_succeed):
         obj_conf = dict(volumes=dict(count=count, size=size))
         obj = self.get_obj(conf=obj_conf)
-        fake_volumes = list()
+        fake_volumes = []
         for i in range(count):
-            vol_name = '%s_%s' % (obj.name, i)
+            vol_name = f'{obj.name}_{i}'
             fake_volumes.append(
                 get_fake_obj(attributes=dict(name=vol_name))
             )

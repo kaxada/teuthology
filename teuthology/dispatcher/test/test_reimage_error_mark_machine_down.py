@@ -7,12 +7,12 @@ class TestCheckReImageFailureMarkDown(object):
 
     def create_n_out_of_10_reimage_failed_jobs(self, n):
         ret_list = []
-        for i in range(n):
+        for _ in range(n):
             obj1 = {
               "failure_reason":"Error reimaging machines: Manually raised error"
               }
             ret_list.append(obj1)
-        for j in range(10-n):
+        for _ in range(10-n):
             obj2 = {"failure_reason":"Error something else: dummy"}
             ret_list.append(obj2)
         return ret_list

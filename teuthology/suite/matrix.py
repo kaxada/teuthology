@@ -102,7 +102,7 @@ class Product(Matrix):
     """
     def __init__(self, item, _submats):
         assert len(_submats) > 0, \
-            "Product requires child submats to be passed in"
+                "Product requires child submats to be passed in"
         self.item = item
 
         submats = sorted(
@@ -115,7 +115,7 @@ class Product(Matrix):
             self._size *= size
         self.submats.reverse()
 
-        self._minscanlen = max([i.minscanlen() for i in _submats])
+        self._minscanlen = max(i.minscanlen() for i in _submats)
         if self._minscanlen + 1 > self._size:
             self._minscanlen  = self._size
         else:
@@ -148,7 +148,7 @@ class Product(Matrix):
         rmat.size() combinations.
         """
         assert len(submats) > 0, \
-            "_index requires non-empty submats"
+                "_index requires non-empty submats"
         if len(submats) == 1:
             return frozenset([submats[0][1].index(i)])
 
@@ -162,9 +162,7 @@ class Product(Matrix):
         off = (i // clen) % cycles
 
         def combine(r, s=frozenset()):
-            if isinstance(r, frozenset):
-                return s | r
-            return s | frozenset([r])
+            return s | r if isinstance(r, frozenset) else s | frozenset([r])
 
         litems = lmat.index((i - off) % lmat.size())
         ritems = self._index(i, submats[1:])
@@ -292,9 +290,7 @@ class Sum(Matrix):
         max(i) s.t. offset + i*multiple <= pi
         """
         (offset, multiple) = offset_multiple
-        if pi < offset:
-            return -1
-        return (pi - offset) // multiple
+        return -1 if pi < offset else (pi - offset) // multiple
 
     def pseudo_index_to_index(self, pi):
         """

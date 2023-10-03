@@ -119,13 +119,13 @@ class JobPrinter(JobProcessor):
             pprint.pprint(job_config)
         elif job_desc and self.show_desc:
             for desc in job_desc.split():
-                print('\t {}'.format(desc))
+                print(f'\t {desc}')
 
 
 class RunPrinter(JobProcessor):
     def __init__(self):
         super(RunPrinter, self).__init__()
-        self.runs = list()
+        self.runs = []
 
     def process_job(self, job_id):
         run = self.jobs[job_id]['job_config']['name']
@@ -151,19 +151,14 @@ class JobDeleter(JobProcessor):
             job_id=job_id,
             job_name=job_name,
             ))
-        job_obj = self.jobs[job_id].get('job_obj')
-        if job_obj:
+        if job_obj := self.jobs[job_id].get('job_obj'):
             job_obj.delete()
         report.try_delete_jobs(job_name, job_id)
 
 
 def pause_tube(connection, tube, duration):
     duration = int(duration)
-    if not tube:
-        tubes = sorted(connection.tubes())
-    else:
-        tubes = [tube]
-
+    tubes = sorted(connection.tubes()) if not tube else [tube]
     prefix = 'Unpausing' if duration == 0 else "Pausing for {dur}s"
     templ = prefix + ": {tubes}"
     log.info(templ.format(dur=duration, tubes=tubes))
@@ -173,12 +168,11 @@ def pause_tube(connection, tube, duration):
 
 def stats_tube(connection, tube):
     stats = connection.stats_tube(tube)
-    result = dict(
+    return dict(
         name=tube,
         count=stats['current-jobs-ready'],
         paused=(stats['pause'] != 0),
     )
-    return result
 
 
 def main(args):

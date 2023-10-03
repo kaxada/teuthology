@@ -24,11 +24,10 @@ class Provider(object):
             getattr(lc_Provider, self.driver_name.upper())
         )
         driver_args = self._get_driver_args()
-        driver = driver_type(
+        return driver_type(
             *[driver_args.pop(arg_name) for arg_name in self._driver_posargs],
             **driver_args
         )
-        return driver
     driver = property(fget=_get_driver)
 
     def _get_driver_args(self):
@@ -72,9 +71,7 @@ class Provisioner(object):
     @property
     def remote(self):
         if not hasattr(self, '_remote'):
-            self._remote = teuthology.orchestra.remote.Remote(
-                "%s@%s" % (self.user, self.name),
-            )
+            self._remote = teuthology.orchestra.remote.Remote(f"{self.user}@{self.name}")
         return self._remote
 
     def __repr__(self):

@@ -48,15 +48,15 @@ def task(ctx, config):
     if 'all' in config and len(config) == 1:
         a = config['all']
         roles = teuthology.all_roles(ctx.cluster)
-        config = dict((id_, a) for id_ in roles)
+        config = {id_: a for id_ in roles}
     elif 'all-roles' in config and len(config) == 1:
         a = config['all-roles']
         roles = teuthology.all_roles(ctx.cluster)
-        config = dict((id_, a) for id_ in roles)
+        config = {id_: a for id_ in roles}
     elif 'all-hosts' in config and len(config) == 1:
         a = config['all-hosts']
         roles = [roles[0] for roles in ctx.cluster.remotes.values()]
-        config = dict((id_, a) for id_ in roles)
+        config = {id_: a for id_ in roles}
 
     for role, ls in config.items():
         (remote,) = ctx.cluster.only(role).remotes.keys()

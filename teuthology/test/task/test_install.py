@@ -74,7 +74,7 @@ class TestInstall(object):
         gb.project = "ceph"
         m_gitbuilder_project.return_value = gb
         m_get_package_version.return_value = "0.89.0"
-        config = dict()
+        config = {}
         install.verify_package_version(Mock(), config, Mock())
 
     @patch("teuthology.task.install._get_builder_project")
@@ -86,7 +86,7 @@ class TestInstall(object):
         gb.project = "ceph"
         m_gitbuilder_project.return_value = gb
         m_get_package_version.return_value = "0.89.1"
-        config = dict()
+        config = {}
         with pytest.raises(RuntimeError):
             install.verify_package_version(Mock(), config, Mock())
 
@@ -100,12 +100,11 @@ class TestInstall(object):
         m_gitbuilder_project.return_value = gb
         # ceph isn't installed because ceph-deploy would install it
         m_get_package_version.return_value = None
-        config = dict()
-        config['extras'] = True
+        config = {'extras': True}
         install.verify_package_version(Mock(), config, Mock())
 
     def test_get_flavor_default(self):
-        config = dict()
+        config = {}
         assert install.get_flavor(config) == 'default'
 
     def test_get_flavor_simple(self):
@@ -305,7 +304,7 @@ class TestInstall(object):
         ctx = Mock()
         remote = Mock()
         version = '1.3.2'
-        rh_ds_yaml = dict()
+        rh_ds_yaml = {}
         rh_ds_yaml = {
             'versions': {'deb': {'mapped': {'1.3.2': '0.94.5'}}},
             'pkgs': {'deb': ['pkg1', 'pkg2']},
@@ -320,7 +319,7 @@ class TestInstall(object):
         ctx = Mock()
         remote = Mock()
         version = '1.3.2'
-        rh_ds_yaml = dict()
+        rh_ds_yaml = {}
         rh_ds_yaml = {
             'versions': {'rpm': {'mapped': {'1.3.2': '0.94.5',
                                             '1.3.1': '0.94.3'}}},

@@ -81,8 +81,7 @@ def fetch_tasks_if_needed(job_config):
         log.info("Tasks not found; will attempt to fetch")
 
     ceph_branch = job_config.get('branch', 'master')
-    suite_repo = job_config.get('suite_repo')
-    if suite_repo:
+    if suite_repo := job_config.get('suite_repo'):
         teuth_config.ceph_qa_suite_git_url = suite_repo
     suite_branch = job_config.get('suite_branch', ceph_branch)
     suite_sha1 = job_config.get('suite_sha1')
@@ -171,13 +170,15 @@ def get_initial_tasks(lock, config, machine_type):
     overrides = config.get('overrides', {})
     having_repos = ('repos' in config.get('install', {}) or
                     'repos' in overrides.get('install', {}))
-    if 'redhat' in config:
-        pass
-    elif having_repos:
-        pass
-    elif not config.get('verify_ceph_hash', True):
-        pass
-    else:
+    if (
+        'redhat' not in config
+        and ('redhat' in config or not having_repos)
+        and (
+            'redhat' in config
+            or having_repos
+            or config.get('verify_ceph_hash', True)
+        )
+    ):
         init_tasks += [
             {'internal.check_packages': None},
             {'internal.buildpackages_prep': None},
@@ -205,12 +206,11 @@ def get_initial_tasks(lock, config, machine_type):
             {'internal.check_conflict': None},
         ])
 
-    if ('roles' in config and
-        not config.get('use_existing_cluster', False)):
-        init_tasks.extend([
-            {'internal.check_ceph_data': None},
-            {'internal.vm_setup': None},
-        ])
+        if not config.get('use_existing_cluster', False):
+            init_tasks.extend([
+                {'internal.check_ceph_data': None},
+                {'internal.vm_setup': None},
+            ])
 
     # install_latest_rh_kernel is used for redhat config
     if 'redhat' not in config and 'kernel' in config:
@@ -257,7 +257,7 @@ def get_initial_tasks(lock, config, machine_type):
         # Install latest kernel task for redhat downstream runs
         if config.get('redhat').get('install_latest_rh_kernel', False):
             init_tasks.extend({'kernel.install_latest_rh_kernel': None})
- 
+
     return init_tasks
 
 
@@ -280,7 +280,7 @@ def report_outcome(config, archive, summary, fake_ctx):
     if ('email-on-error' in config
             and not passed):
         config_dump = yaml.safe_dump(config)
-        subject = "Teuthology error -- %s" % summary['failure_reason']
+        subject = f"Teuthology error -- {summary['failure_reason']}"
         email_results(subject, "Teuthology", config['email-on-error'],
             "\n".join([summary_dump, config_dump]))
 
@@ -307,8 +307,7 @@ def get_teuthology_command(args):
                 cmd.append(key)
             else:
                 # this is the <config> argument
-                for arg in value:
-                    cmd.append(str(arg))
+                cmd.extend(str(arg) for arg in value)
                 continue
             # so we don't print something like --verbose True
             if isinstance(value, str):
@@ -360,11 +359,9 @@ def main(args):
 
     args["summary"] = get_summary(owner, description)
 
-    ceph_repo = config.get('repo')
-    if ceph_repo:
+    if ceph_repo := config.get('repo'):
         teuth_config.ceph_git_url = ceph_repo
-    suite_repo = config.get('suite_repo')
-    if suite_repo:
+    if suite_repo := config.get('suite_repo'):
         teuth_config.ceph_qa_suite_git_url = suite_repo
 
     # overwrite the config values of os_{type,version} if corresponding 

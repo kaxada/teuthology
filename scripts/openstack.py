@@ -293,7 +293,7 @@ def get_openstack_parser():
     return parser
 
 def get_parser():
-    parser = argparse.ArgumentParser(
+    return argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
         parents=[
             get_suite_parser(),
@@ -385,7 +385,8 @@ Equivalent json file content below:
 At the moment supported only files with extensions: .yaml, .yml, .json, .jsn.
 
 teuthology-openstack %s
-""" % teuthology.__version__,
+"""
+        % teuthology.__version__,
         description="""
 Run a suite of ceph integration tests. A suite is a directory containing
 facets. A facet is a directory containing config snippets. Running a suite
@@ -402,8 +403,8 @@ and analyze results.
   firefox http://183.84.234.3:8081/
   ssh -i teuthology-admin.pem ubuntu@183.84.234.3
 
-""")
-    return parser
+""",
+    )
 
 def parse_args(argv):
     return get_parser().parse_args(argv)

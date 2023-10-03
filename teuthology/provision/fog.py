@@ -25,7 +25,7 @@ def enabled(warn=False):
     :param warn: Whether or not to log a message containing unset parameters
     :returns: True if they are present; False if they are not
     """
-    fog_conf = config.get('fog', dict())
+    fog_conf = config.get('fog', {})
     params = ['endpoint', 'api_token', 'user_token', 'machine_types']
     unset = [param for param in params if not fog_conf.get(param)]
     if unset and warn:
@@ -33,7 +33,7 @@ def enabled(warn=False):
             "FOG disabled; set the following config options to enable: %s",
             ' '.join(unset),
         )
-    return (unset == [])
+    return not unset
 
 
 def get_types():
@@ -45,7 +45,7 @@ def get_types():
     """
     if not enabled():
         return []
-    fog_conf = config.get('fog', dict())
+    fog_conf = config.get('fog', {})
     types = fog_conf.get('machine_types', '')
     if not isinstance(types, list):
         types = types.split(',')
@@ -135,10 +135,9 @@ class FOG(object):
         )
         obj = resp.json()
         if obj['count'] == 0:
-            raise RuntimeError("Host %s not found!" % self.shortname)
+            raise RuntimeError(f"Host {self.shortname} not found!")
         if obj['count'] > 1:
-            raise RuntimeError(
-                "More than one host found for %s" % self.shortname)
+            raise RuntimeError(f"More than one host found for {self.shortname}")
         return obj['hosts'][0]
 
     def get_image_data(self):
@@ -156,8 +155,8 @@ class FOG(object):
         obj = resp.json()
         if not obj['count']:
             raise RuntimeError(
-                "Could not find an image for %s %s" %
-                (self.os_type, self.os_version))
+                f"Could not find an image for {self.os_type} {self.os_version}"
+            )
         return obj['images'][0]
 
     def set_image(self, host_id):
@@ -168,7 +167,7 @@ class FOG(object):
         image_data = self.get_image_data()
         image_id = int(image_data['id'])
         self.do_request(
-            '/host/%s' % host_id,
+            f'/host/{host_id}',
             method='PUT',
             data=json.dumps(dict(imageID=image_id)),
         )
@@ -219,10 +218,8 @@ class FOG(object):
             tasks = resp.json()['tasks']
         except Exception:
             self.log.exception("Failed to get deploy tasks!")
-            return list()
-        host_tasks = [obj for obj in tasks
-                      if obj['host']['name'] == self.shortname]
-        return host_tasks
+            return []
+        return [obj for obj in tasks if obj['host']['name'] == self.shortname]
 
     def deploy_task_active(self, task_id):
         """
@@ -230,9 +227,7 @@ class FOG(object):
         :returns: True if the task is active
         """
         host_tasks = self.get_deploy_tasks()
-        return any(
-            [task['id'] == task_id for task in host_tasks]
-        )
+        return any(task['id'] == task_id for task in host_tasks)
 
     def wait_for_deploy_task(self, task_id):
         """
@@ -269,9 +264,8 @@ class FOG(object):
                     EOFError,
                 ):
                     pass
-        sentinel_file = config.fog.get('sentinel_file', None)
-        if sentinel_file:
-            cmd = "while [ ! -e '%s' ]; do sleep 5; done" % sentinel_file
+        if sentinel_file := config.fog.get('sentinel_file', None):
+            cmd = f"while [ ! -e '{sentinel_file}' ]; do sleep 5; done"
             self.remote.run(args=cmd, timeout=600)
         self.log.info("Node is ready")
 
@@ -282,30 +276,22 @@ class FOG(object):
         /binhostname and tweaking /etc/hosts.
         """
         wrong_hostname = self.remote.sh('hostname').strip()
-        etc_hosts = self.remote.sh(
-            'grep %s /etc/hosts' % wrong_hostname,
-            check_status=False,
-        ).strip()
-        if etc_hosts:
+        if etc_hosts := self.remote.sh(
+            f'grep {wrong_hostname} /etc/hosts', check_status=False
+        ).strip():
             wrong_ip = re.split(r'\s+', etc_hosts.split('\n')[0].strip())[0]
-            self.remote.run(args="sudo hostname %s" % self.shortname)
+            self.remote.run(args=f"sudo hostname {self.shortname}")
             self.remote.run(
-                args="sudo sed -i -e 's/%s/%s/g' /etc/hosts" % (
-                    wrong_hostname, self.shortname),
+                args=f"sudo sed -i -e 's/{wrong_hostname}/{self.shortname}/g' /etc/hosts"
             )
             self.remote.run(
-                args="sudo sed -i -e 's/%s/%s/g' /etc/hosts" % (
-                    wrong_ip, self.remote.ip_address),
+                args=f"sudo sed -i -e 's/{wrong_ip}/{self.remote.ip_address}/g' /etc/hosts"
             )
         self.remote.run(
-            args="sudo sed -i -e 's/%s/%s/g' /etc/hostname" % (
-                wrong_hostname, self.shortname),
+            args=f"sudo sed -i -e 's/{wrong_hostname}/{self.shortname}/g' /etc/hostname",
             check_status=False,
         )
-        self.remote.run(
-            args="sudo hostname %s" % self.shortname,
-            check_status=False,
-        )
+        self.remote.run(args=f"sudo hostname {self.shortname}", check_status=False)
 
     def destroy(self):
         """A no-op; we just leave idle nodes as-is"""

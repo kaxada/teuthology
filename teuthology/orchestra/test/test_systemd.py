@@ -25,7 +25,7 @@ def test_pid():
 
     # patching ps -ef command output using a file
     def sh(args):
-        args[0:2] = ["cat", ps_ef_output_path]
+        args[:2] = ["cat", ps_ef_output_path]
         debug(args)
         return subprocess.getoutput(quote(args))
 

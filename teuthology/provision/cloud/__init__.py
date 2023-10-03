@@ -16,16 +16,16 @@ supported_drivers = dict(
 
 
 def get_types():
-    types = list()
-    if 'libcloud' in config and 'providers' in config.libcloud:
-        types = list(config.libcloud['providers'].keys())
-    return types
+    return (
+        list(config.libcloud['providers'].keys())
+        if 'libcloud' in config and 'providers' in config.libcloud
+        else []
+    )
 
 
 def get_provider_conf(node_type):
     all_providers = config.libcloud['providers']
-    provider_conf = all_providers[node_type]
-    return provider_conf
+    return all_providers[node_type]
 
 
 def get_provider(node_type):

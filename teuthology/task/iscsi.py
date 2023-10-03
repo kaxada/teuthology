@@ -39,9 +39,7 @@ def tgt_devname_get(ctx, test_image):
     """
     remotes = ctx.cluster.only(teuthology.is_type('client')).remotes
     rem_name = _get_remote_name(remotes, test_image)
-    lnkpath = '/dev/disk/by-path/ip-%s:3260-iscsi-rbd-lun-1' % \
-            socket.gethostbyname(rem_name)
-    return lnkpath
+    return f'/dev/disk/by-path/ip-{socket.gethostbyname(rem_name)}:3260-iscsi-rbd-lun-1'
 
 
 def tgt_devname_rtn(ctx, test_image):
@@ -58,13 +56,14 @@ def file_io_test(rem, file_from, lnkpath):
     """
     rem.run(
         args=[
-        'sudo',
-        'dd',
-        'if=%s' % file_from,
-        'of=%s' % lnkpath,
-        'bs=1024',
-        'conv=fsync',
-    ])
+            'sudo',
+            'dd',
+            f'if={file_from}',
+            f'of={lnkpath}',
+            'bs=1024',
+            'conv=fsync',
+        ]
+    )
     tfile2 = rem.sh('mktemp').strip()
     rem.run(
         args=[

@@ -27,10 +27,10 @@ class TestCephAnsibleTask(TestTask):
         self.ctx.cluster.add(Remote('user@remote1'), ['mon.0'])
         self.ctx.cluster.add(Remote('user@remote2'), ['mds.0'])
         self.ctx.cluster.add(Remote('user@remote3'), ['osd.0'])
-        self.ctx.summary = dict()
-        self.ctx.config = dict()
+        self.ctx.summary = {}
+        self.ctx.config = {}
         self.ctx.archive = '../'
-        self.task_config = dict()
+        self.task_config = {}
         self.start_patchers()
 
     def start_patchers(self):
@@ -38,7 +38,7 @@ class TestCephAnsibleTask(TestTask):
         m_fetch_repo.return_value = 'PATH'
 
         def fake_get_scratch_devices(remote):
-            return ['/dev/%s' % remote.shortname]
+            return [f'/dev/{remote.shortname}']
 
         self.patcher_get_scratch_devices = patch(
             'teuthology.task.ceph_ansible.get_scratch_devices',

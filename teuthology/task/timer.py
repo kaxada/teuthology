@@ -36,11 +36,10 @@ def task(ctx, config):
         minutez, secondz = divmod(remainder, 60)
         elapsedtime = "%02d:%02d:%02d.%06d" % (hourz,minutez,secondz, elapsed.microseconds)
         dateinfo = (datesaved, elapsedtime)
-        if not 'timer' in ctx.summary:
+        if 'timer' not in ctx.summary:
             ctx.summary['timer'] = {config : [dateinfo]}
+        elif config in ctx.summary['timer']:
+            ctx.summary['timer'][config].append(dateinfo)
         else:
-            if config in ctx.summary['timer']:
-                ctx.summary['timer'][config].append(dateinfo)
-            else:
-                ctx.summary['timer'][config] = [dateinfo]
-        log.info('Elapsed time for %s -- %s' % (config,elapsedtime))
+            ctx.summary['timer'][config] = [dateinfo]
+        log.info(f'Elapsed time for {config} -- {elapsedtime}')

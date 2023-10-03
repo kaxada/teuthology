@@ -35,9 +35,10 @@ def task(ctx, config):
     testdir = teuthology.get_testdir(ctx)
 
     if config is None:
-        config = list('client.{id}'.format(id=id_)
-                      for id_ in teuthology.all_roles_of_type(ctx.cluster,
-                                                              'client'))
+        config = [
+            'client.{id}'.format(id=id_)
+            for id_ in teuthology.all_roles_of_type(ctx.cluster, 'client')
+        ]
 
     clients = list(teuthology.get_clients(ctx=ctx, roles=config))
     for id_, remote in clients:

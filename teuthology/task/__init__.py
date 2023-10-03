@@ -29,7 +29,7 @@ class Task(object):
             self.name = self.__class__.__name__.lower()
         self.log = log
         self.ctx = ctx
-        self.config = config or dict()
+        self.config = config or {}
         if not isinstance(self.config, dict):
             raise TypeError("config must be a dict")
         self.apply_overrides()
@@ -43,11 +43,10 @@ class Task(object):
         """
         if not hasattr(self.ctx, 'config'):
             return
-        all_overrides = self.ctx.config.get('overrides', dict())
+        all_overrides = self.ctx.config.get('overrides', {})
         if not all_overrides:
             return
-        task_overrides = all_overrides.get(self.name)
-        if task_overrides:
+        if task_overrides := all_overrides.get(self.name):
             self.log.debug(
                 "Applying overrides for task {name}: {overrides}".format(
                     name=self.name, overrides=task_overrides)
@@ -67,7 +66,7 @@ class Task(object):
         elif 'hosts' not in self.config:
             self.cluster = self.ctx.cluster
             return self.cluster
-        host_specs = self.config.get('hosts', list())
+        host_specs = self.config.get('hosts', [])
         cluster = Cluster()
         for host_spec in host_specs:
             role_matches = self.ctx.cluster.only(host_spec)
@@ -77,7 +76,7 @@ class Task(object):
             elif isinstance(host_spec, str):
                 for (remote, roles) in self.ctx.cluster.remotes.items():
                     if remote.name.split('@')[-1] == host_spec or \
-                            remote.shortname == host_spec:
+                                remote.shortname == host_spec:
                         cluster.add(remote, roles)
         if not cluster.remotes:
             raise RuntimeError("All target hosts were excluded!")

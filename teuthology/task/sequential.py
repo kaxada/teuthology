@@ -43,7 +43,7 @@ def task(ctx, config):
             if not isinstance(entry, dict):
                 entry = ctx.config.get(entry, {})
             ((taskname, confg),) = entry.items()
-            log.info('In sequential, running task %s...' % taskname)
+            log.info(f'In sequential, running task {taskname}...')
             mgr = run_tasks.run_one_task(taskname, ctx=ctx, config=confg)
             if hasattr(mgr, '__enter__'):
                 mgr.__enter__()

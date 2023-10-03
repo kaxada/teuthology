@@ -20,8 +20,7 @@ FRESHNESS_INTERVAL = 60
 
 
 def touch_file(path):
-    out = subprocess.check_output(('touch', path))
-    if out:
+    if out := subprocess.check_output(('touch', path)):
         log.info(out)
 
 
@@ -61,12 +60,10 @@ def ls_remote(url, ref):
     :returns: The sha1 if found; else None
     """
     sha1 = None
-    cmd = "git ls-remote {} {}".format(url, ref)
-    result = subprocess.check_output(
-        cmd, shell=True).split()
-    if result:
+    cmd = f"git ls-remote {url} {ref}"
+    if result := subprocess.check_output(cmd, shell=True).split():
         sha1 = result[0].decode()
-    log.debug("{} -> {}".format(cmd, sha1))
+    log.debug(f"{cmd} -> {sha1}")
     return sha1
 
 
@@ -137,7 +134,7 @@ def clone_repo(repo_url, dest_path, branch, shallow=True):
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT)
 
-    not_found_str = "Remote branch %s not found" % branch
+    not_found_str = f"Remote branch {branch} not found"
     out = proc.stdout.read().decode()
     result = proc.wait()
     # Newer git versions will bail if the branch is not found, but older ones
@@ -163,10 +160,10 @@ def lsstrip(s, prefix):
 
 def remote_ref_from_ref(ref, remote='origin'):
     if ref.startswith('refs/pull/'):
-        return 'refs/remotes/' + remote + lsstrip(ref, 'refs')
+        return f'refs/remotes/{remote}' + lsstrip(ref, 'refs')
     elif ref.startswith('refs/heads/'):
-        return 'refs/remotes/' + remote + lsstrip(ref, 'refs/heads')
-    raise GitError("Unsupported ref '%s'" % ref)
+        return f'refs/remotes/{remote}' + lsstrip(ref, 'refs/heads')
+    raise GitError(f"Unsupported ref '{ref}'")
 
 
 def local_branch_from_ref(ref):
@@ -174,31 +171,29 @@ def local_branch_from_ref(ref):
         s = lsstrip(ref, 'refs/pull/')
         s = rsstrip(s, '/merge')
         s = rsstrip(s, '/head')
-        return "PR#%s" % s
+        return f"PR#{s}"
     elif ref.startswith('refs/heads/'):
         return lsstrip(ref, 'refs/heads/')
-    raise GitError("Unsupported ref '%s', try 'refs/heads/' or 'refs/pull/'" % ref)
+    raise GitError(f"Unsupported ref '{ref}', try 'refs/heads/' or 'refs/pull/'")
 
 
 def fetch_refspec(ref):
-    if '/' in ref:
-        remote_ref = remote_ref_from_ref(ref)
-        return "+%s:%s" % (ref, remote_ref)
-    else:
+    if '/' not in ref:
         # looks like a branch name
         return ref
+    remote_ref = remote_ref_from_ref(ref)
+    return f"+{ref}:{remote_ref}"
 
 
 def clone_repo_ref(repo_url, dest_path, ref):
     branch_name = local_branch_from_ref(ref)
     remote_ref = remote_ref_from_ref(ref)
-    misc.sh('git init %s' % dest_path)
-    misc.sh('git remote add origin %s' % repo_url, cwd=dest_path)
+    misc.sh(f'git init {dest_path}')
+    misc.sh(f'git remote add origin {repo_url}', cwd=dest_path)
     #misc.sh('git fetch --depth 1 origin %s' % fetch_refspec(ref),
     #                                                        cwd=dest_path)
     fetch_branch(dest_path, ref)
-    misc.sh('git checkout -b %s %s' % (branch_name, remote_ref),
-                                                            cwd=dest_path)
+    misc.sh(f'git checkout -b {branch_name} {remote_ref}', cwd=dest_path)
 
 
 def set_remote(repo_path, repo_url):
@@ -262,7 +257,7 @@ def fetch_branch(repo_path, branch, shallow=True):
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT)
     if proc.wait() != 0:
-        not_found_str = "fatal: couldn't find remote ref %s" % branch
+        not_found_str = f"fatal: couldn't find remote ref {branch}"
         out = proc.stdout.read().decode()
         log.error(out)
         if not_found_str in out.lower():
@@ -286,7 +281,7 @@ def reset_repo(repo_url, dest_path, branch, commit=None):
     if '/' in branch:
         reset_branch = lsstrip(remote_ref_from_ref(branch), 'refs/remotes/')
     else:
-        reset_branch = 'origin/%s' % branch
+        reset_branch = f'origin/{branch}'
     reset_ref = commit or reset_branch
     log.info('Resetting repo at %s to %s', dest_path, reset_ref)
     # This try/except block will notice if the requested branch doesn't
@@ -310,7 +305,7 @@ def remove_pyc_files(dest_path):
 
 def validate_branch(branch):
     if ' ' in branch:
-        raise ValueError("Illegal branch name: '%s'" % branch)
+        raise ValueError(f"Illegal branch name: '{branch}'")
 
 
 def fetch_repo(url, branch, commit=None, bootstrap=None, lock=True):
@@ -329,7 +324,7 @@ def fetch_repo(url, branch, commit=None, bootstrap=None, lock=True):
     if not os.path.exists(src_base_path):
         os.mkdir(src_base_path)
     ref_dir = ref_to_dirname(commit or branch)
-    dirname = '%s_%s' % (url_to_dirname(url), ref_dir)
+    dirname = f'{url_to_dirname(url)}_{ref_dir}'
     dest_path = os.path.join(src_base_path, dirname)
     # only let one worker create/update the checkout at a time
     lock_path = dest_path.rstrip('/') + '.lock'
@@ -361,10 +356,7 @@ def fetch_repo(url, branch, commit=None, bootstrap=None, lock=True):
 
 
 def ref_to_dirname(branch):
-    if '/' in branch:
-        return local_branch_from_ref(branch)
-    else:
-        return branch
+    return local_branch_from_ref(branch) if '/' in branch else branch
 
 
 def url_to_dirname(url):
@@ -411,7 +403,7 @@ def fetch_teuthology(branch, commit=None, lock=True):
     :param commit: The sha1 to checkout. Defaults to None, which uses HEAD of the branch.
     :returns:      The destination path
     """
-    url = config.ceph_git_base_url + 'teuthology.git'
+    url = f'{config.ceph_git_base_url}teuthology.git'
     return fetch_repo(url, branch, commit, bootstrap_teuthology, lock)
 
 

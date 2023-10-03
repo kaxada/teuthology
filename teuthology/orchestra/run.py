@@ -61,11 +61,7 @@ class RemoteProcess(object):
         """
         self.client = client
         self.args = args
-        if isinstance(args, list):
-            self.command = quote(args)
-        else:
-            self.command = args
-
+        self.command = quote(args) if isinstance(args, list) else args
         if cwd:
             self.command = '(cd {cwd} && exec {cmd})'.format(
                            cwd=cwd, cmd=self.command)
@@ -77,7 +73,7 @@ class RemoteProcess(object):
         if hostname:
             self.hostname = hostname
         else:
-            (self.hostname, port) = client.get_transport().getpeername()[0:2]
+            (self.hostname, port) = client.get_transport().getpeername()[:2]
 
         self.greenlets = []
         self.stdin, self.stdout, self.stderr = (None, None, None)
@@ -90,16 +86,16 @@ class RemoteProcess(object):
         Execute remote command
         """
         for line in self.command.split('\n'):
-            log.getChild(self.hostname).debug('%s> %s' % (self.label or '', line))
+            log.getChild(self.hostname).debug(f"{self.label or ''}> {line}")
 
         if hasattr(self, 'timeout'):
             (self._stdin_buf, self._stdout_buf, self._stderr_buf) = \
-                self.client.exec_command(self.command, timeout=self.timeout)
+                    self.client.exec_command(self.command, timeout=self.timeout)
         else:
             (self._stdin_buf, self._stdout_buf, self._stderr_buf) = \
-                self.client.exec_command(self.command)
+                    self.client.exec_command(self.command)
         (self.stdin, self.stdout, self.stderr) = \
-            (self._stdin_buf, self._stdout_buf, self._stderr_buf)
+                (self._stdin_buf, self._stdout_buf, self._stderr_buf)
 
     def add_greenlet(self, greenlet):
         self.greenlets.append(greenlet)
@@ -142,12 +138,12 @@ class RemoteProcess(object):
 
         status = self._get_exitstatus()
         if status != 0:
-            log.debug("got remote process result: {}".format(status))
+            log.debug(f"got remote process result: {status}")
         for greenlet in self.greenlets:
             try:
                 greenlet.get(block=True,timeout=60)
             except gevent.Timeout:
-                log.debug("timed out waiting; will kill: {}".format(greenlet))
+                log.debug(f"timed out waiting; will kill: {greenlet}")
                 greenlet.kill(block=False)
         for stream in ('stdout', 'stderr'):
             if hasattr(self, stream):
@@ -155,7 +151,7 @@ class RemoteProcess(object):
                 # Despite ChannelFile having a seek() method, it raises
                 # "IOError: File does not support seeking."
                 if hasattr(stream_obj, 'seek') and \
-                        not isinstance(stream_obj, ChannelFile):
+                            not isinstance(stream_obj, ChannelFile):
                     stream_obj.seek(0)
 
         self._raise_for_status()
@@ -253,10 +249,8 @@ def quote(args):
                 yield a.value
             else:
                 yield pipes.quote(a)
-    if isinstance(args, list):
-        return ' '.join(_quote(args))
-    else:
-        return args
+
+    return ' '.join(_quote(args)) if isinstance(args, list) else args
 
 
 def copy_to_log(f, logger, loglevel=logging.INFO, capture=None, quiet=False):
@@ -275,16 +269,18 @@ def copy_to_log(f, logger, loglevel=logging.INFO, capture=None, quiet=False):
         f._flags += ChannelFile.FLAG_BINARY
     for line in f:
         if capture:
-            if isinstance(capture, io.StringIO):
-                if isinstance(line, str):
-                    capture.write(line)
-                else:
-                    capture.write(line.decode('utf-8', 'replace'))
+            if (
+                isinstance(capture, io.StringIO)
+                and isinstance(line, str)
+                or not isinstance(capture, io.StringIO)
+                and isinstance(capture, io.BytesIO)
+                and not isinstance(line, str)
+            ):
+                capture.write(line)
+            elif isinstance(capture, io.StringIO):
+                capture.write(line.decode('utf-8', 'replace'))
             elif isinstance(capture, io.BytesIO):
-                if isinstance(line, str):
-                    capture.write(line.encode())
-                else:
-                    capture.write(line)
+                capture.write(line.encode())
         line = line.rstrip()
         # Second part of work-around for http://tracker.ceph.com/issues/8313
         if quiet:
@@ -431,9 +427,8 @@ def run(
     :param cwd: Directory in which the command should be executed.
     """
     try:
-        transport = client.get_transport()
-        if transport:
-            (host, port) = transport.getpeername()[0:2]
+        if transport := client.get_transport():
+            (host, port) = transport.getpeername()[:2]
         else:
             raise ConnectionLostError(command=quote(args), node=name)
     except socket.error:
@@ -469,7 +464,7 @@ def wait(processes, timeout=None):
     if timeout and timeout > 0:
         with safe_while(tries=(timeout // 6)) as check_time:
             not_ready = list(processes)
-            while len(not_ready) > 0:
+            while not_ready:
                 check_time()
                 for proc in list(not_ready):
                     if proc.finished:

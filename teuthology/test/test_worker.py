@@ -222,9 +222,7 @@ class TestWorker(object):
         # Make sure instantiating m_job returns a new object each time
         m_job.side_effect = lambda **kwargs: Mock(spec=beanstalkc.Job)
         jobs = []
-        job_id = 0
-        for job_body in job_bodies:
-            job_id += 1
+        for job_id, job_body in enumerate(job_bodies, start=1):
             job = m_job(conn=m_connection, jid=job_id, body=job_body)
             job.jid = job_id
             job.body = job_body
@@ -255,12 +253,10 @@ class TestWorker(object):
         )
         m_connection.reserve.side_effect = jobs
         m_connect.return_value = m_connection
-        m_prep_job.return_value = (dict(), '/bin/path')
+        m_prep_job.return_value = {}, '/bin/path'
         worker.main(self.ctx)
         # There should be one reserve call per item in the jobs list
-        expected_reserve_calls = [
-            dict(timeout=60) for i in range(len(jobs))
-        ]
+        expected_reserve_calls = [dict(timeout=60) for _ in range(len(jobs))]
         got_reserve_calls = [
             call[1] for call in m_connection.reserve.call_args_list
         ]

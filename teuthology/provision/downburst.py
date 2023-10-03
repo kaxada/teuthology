@@ -21,13 +21,11 @@ def downburst_executable():
     Return '' if no executable downburst is found.
     """
     if config.downburst:
-        if isinstance(config.downburst, dict):
-            if 'path' in config.downburst:
-                return config.downburst['path']
-        else:
+        if not isinstance(config.downburst, dict):
             return config.downburst
-    path = os.environ.get('PATH', None)
-    if path:
+        if 'path' in config.downburst:
+            return config.downburst['path']
+    if path := os.environ.get('PATH', None):
         for p in os.environ.get('PATH', '').split(os.pathsep):
             pth = os.path.join(p, 'downburst')
             if os.access(pth, os.X_OK):
@@ -35,15 +33,14 @@ def downburst_executable():
     import pwd
     little_old_me = pwd.getpwuid(os.getuid()).pw_name
     for user in [little_old_me, 'ubuntu', 'teuthology']:
-        pth = os.path.expanduser(
-            "~%s/src/downburst/virtualenv/bin/downburst" % user)
+        pth = os.path.expanduser(f"~{user}/src/downburst/virtualenv/bin/downburst")
         if os.access(pth, os.X_OK):
             return pth
     return ''
 
 
 def downburst_environment():
-    env = dict()
+    env = {}
     discover_url = os.environ.get('DOWNBURST_DISCOVER_URL')
     if config.downburst and not discover_url:
         if isinstance(config.downburst, dict):
@@ -87,27 +84,23 @@ class Downburst(object):
         self.build_config()
         success = None
         with safe_while(sleep=60, tries=3,
-                        action="downburst create") as proceed:
+                            action="downburst create") as proceed:
             while proceed():
                 (returncode, stdout, stderr) = self._run_create()
                 log.info(stdout)
                 log.info(stderr)
                 if returncode == 0:
-                    log.info("Downburst created %s: %s" % (self.name,
-                                                           stdout.strip()))
+                    log.info(f"Downburst created {self.name}: {stdout.strip()}")
                     success = True
                     break
                 elif stderr:
+                    success = False
                     # If the guest already exists first destroy then re-create:
                     if 'exists' in stderr:
-                        success = False
-                        log.info("Guest files exist. Re-creating guest: %s" %
-                                 (self.name))
+                        log.info(f"Guest files exist. Re-creating guest: {self.name}")
                         self.destroy()
                     else:
-                        success = False
-                        log.info("Downburst failed on %s: %s" % (
-                            self.name, stderr.strip()))
+                        log.info(f"Downburst failed on {self.name}: {stderr.strip()}")
                         break
             return success
 
@@ -124,13 +117,15 @@ class Downburst(object):
         args = [self.executable, '-v', '-c', self.host]
         if self.logfile:
             args.extend(['-l', self.logfile])
-        args.extend([
-            'create',
-            '--wait',
-            '--meta-data=%s' % self.config_path,
-            '--user-data=%s' % self.user_path,
-            self.shortname,
-        ])
+        args.extend(
+            [
+                'create',
+                '--wait',
+                f'--meta-data={self.config_path}',
+                f'--user-data={self.user_path}',
+                self.shortname,
+            ]
+        )
         log.info("Provisioning a {distro} {distroversion} vps".format(
             distro=self.os_type,
             distroversion=self.os_version
@@ -163,15 +158,15 @@ class Downburst(object):
         log.info(out)
         log.info(err)
         if proc.returncode != 0:
-            not_found_msg = "no domain with matching name '%s'" % self.shortname
+            not_found_msg = f"no domain with matching name '{self.shortname}'"
             if not_found_msg in err:
                 log.warning("Ignoring error during destroy: %s", err)
                 return True
             log.error("Error destroying %s: %s", self.name, err)
             return False
         else:
-            out_str = ': %s' % out if out else ''
-            log.info("Destroyed %s%s" % (self.name, out_str))
+            out_str = f': {out}' if out else ''
+            log.info(f"Destroyed {self.name}{out_str}")
             return True
 
     def build_config(self):
@@ -239,7 +234,7 @@ class Downburst(object):
         # Install git on downbursted VMs to clone upstream linux-firmware.
         # Issue #17154
         if 'packages' not in user_info:
-            user_info['packages'] = list()
+            user_info['packages'] = []
         user_info['packages'].extend([
             'git',
             'wget',
@@ -247,10 +242,16 @@ class Downburst(object):
         # On CentOS/RHEL/Fedora, write the correct mac address and
         # install redhab-lsb-core for `lsb_release`
         if os_type in ['centos', 'rhel', 'fedora']:
-            user_info['runcmd'].extend([
-                ['sed', '-ie', 's/HWADDR=".*"/HWADDR="%s"/' % mac_address,
-                 '/etc/sysconfig/network-scripts/ifcfg-eth0'],
-            ])
+            user_info['runcmd'].extend(
+                [
+                    [
+                        'sed',
+                        '-ie',
+                        f's/HWADDR=".*"/HWADDR="{mac_address}"/',
+                        '/etc/sysconfig/network-scripts/ifcfg-eth0',
+                    ]
+                ]
+            )
             user_info['packages'].append('redhat-lsb-core')
         # On Ubuntu, starting with 16.04, and Fedora, starting with 24, we need
         # to install 'python' to get python2.7, which ansible needs
@@ -289,21 +290,21 @@ def get_distro_from_downburst():
     table.
     """
     default_table = {'rhel_minimal': ['6.4', '6.5'],
-                     'fedora': ['17', '18', '19', '20', '22'],
-                     'centos': ['6.3', '6.4', '6.5', '7.0',
-				 '7.2', '7.4', '8.2'],
-                     'centos_minimal': ['6.4', '6.5'],
-                     'ubuntu': ['8.04(hardy)', '9.10(karmic)',
-                                 '10.04(lucid)', '10.10(maverick)',
-                                 '11.04(natty)', '11.10(oneiric)',
-                                 '12.04(precise)', '12.10(quantal)',
-                                 '13.04(raring)', '13.10(saucy)',
-                                 '14.04(trusty)', 'utopic(utopic)',
-                                 '16.04(xenial)', '18.04(bionic)',
-                                 '20.04(focal)'],
-                     'sles': ['12-sp3', '15-sp1', '15-sp2'],
-                     'opensuse': ['12.3', '15.1', '15.2'],
-                     'debian': ['6.0', '7.0', '8.0']}
+    'fedora': ['17', '18', '19', '20', '22'],
+    'centos': ['6.3', '6.4', '6.5', '7.0',
+    '7.2', '7.4', '8.2'],
+    'centos_minimal': ['6.4', '6.5'],
+    'ubuntu': ['8.04(hardy)', '9.10(karmic)',
+                '10.04(lucid)', '10.10(maverick)',
+                '11.04(natty)', '11.10(oneiric)',
+                '12.04(precise)', '12.10(quantal)',
+                '13.04(raring)', '13.10(saucy)',
+                '14.04(trusty)', 'utopic(utopic)',
+                '16.04(xenial)', '18.04(bionic)',
+                '20.04(focal)'],
+    'sles': ['12-sp3', '15-sp1', '15-sp2'],
+    'opensuse': ['12.3', '15.1', '15.2'],
+    'debian': ['6.0', '7.0', '8.0']}
     executable_cmd = downburst_executable()
     environment_dict = downburst_environment()
     if not executable_cmd:
@@ -314,8 +315,7 @@ def get_distro_from_downburst():
         log.debug(executable_cmd)
         output = subprocess.check_output([executable_cmd, 'list-json'],
                                                         env=environment_dict)
-        downburst_data = json.loads(output)
-        return downburst_data
+        return json.loads(output)
     except (subprocess.CalledProcessError, OSError):
         log.exception("Error calling downburst!")
         log.info('Using default values for supported os_type/os_version')

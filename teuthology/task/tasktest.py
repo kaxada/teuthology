@@ -38,13 +38,13 @@ def task(ctx, config):
         id = 'UNKNOWN'
     try:
         log.info('**************************************************')
-        log.info('Started task test -- %s' % id)
+        log.info(f'Started task test -- {id}')
         log.info('**************************************************')
         time.sleep(delay)
         yield
 
     finally:
         log.info('**************************************************')
-        log.info('Task test is being cleaned up -- %s' % id)
+        log.info(f'Task test is being cleaned up -- {id}')
         log.info('**************************************************')
 

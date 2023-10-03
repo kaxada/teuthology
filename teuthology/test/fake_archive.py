@@ -21,7 +21,7 @@ class FakeArchive(object):
         """
         rand = random.Random()
 
-        description = 'description for job with id %s' % job_id
+        description = f'description for job with id {job_id}'
         owner = 'job@owner'
         duration = rand.randint(1, 36000)
         pid = rand.randint(1000, 99999)
@@ -41,7 +41,7 @@ class FakeArchive(object):
         }
 
         if not hung:
-            success = True if rand.randint(0, 1) != 1 else False
+            success = rand.randint(0, 1) != 1
 
             summary = {
                 'description': description,
@@ -90,13 +90,12 @@ class FakeArchive(object):
         assert job_count > 0
         jobs = []
         made_hung = 0
-        for i in range(job_count):
+        for _ in range(job_count):
             if made_hung < num_hung:
                 jobs.append(self.get_random_metadata(run_name, hung=True))
                 made_hung += 1
             else:
                 jobs.append(self.get_random_metadata(run_name, hung=False))
-            #job_config = yaml.safe_load(yaml_path)
         self.populate_archive(run_name, jobs)
         for job in jobs:
             job_id = job['job_id']

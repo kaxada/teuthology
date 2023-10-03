@@ -1,10 +1,6 @@
 import sys
 
-PY3 = False
-
-if sys.version_info >= (3, 0):
-    PY3 = True
-
+PY3 = sys.version_info >= (3, 0)
 if PY3:
     from urllib.parse import parse_qs, urljoin, urlparse, urlencode # noqa: F401
     from urllib.request import urlopen, Request # noqa: F401

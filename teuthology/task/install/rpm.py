@@ -26,8 +26,7 @@ def _remove(ctx, config, remote, rpm):
     remote_os = remote.os
     dist_release = remote_os.name
 
-    install_ceph_packages = config.get('install_ceph_packages')
-    if install_ceph_packages:
+    if install_ceph_packages := config.get('install_ceph_packages'):
         log.info("Removing packages: {pkglist} on rpm system.".format(
             pkglist=", ".join(rpm)))
         if dist_release in ['opensuse', 'sle']:
@@ -46,13 +45,13 @@ def _remove(ctx, config, remote, rpm):
         log.info("install task did not install any packages, "
                  "so not removing any, either")
 
-    repos = config.get('repos')
-    if repos:
+    if repos := config.get('repos'):
         if dist_release in ['opensuse', 'sle']:
             _zypper_removerepo(remote, repos)
         else:
-            raise Exception('Custom repos were specified for %s ' % remote_os +
-                            'but these are currently not supported')
+            raise Exception(
+                f'Custom repos were specified for {remote_os} but these are currently not supported'
+            )
     else:
         builder = _get_builder_project(ctx, remote, config)
         builder.remove_repo()
@@ -138,11 +137,11 @@ def _downgrade_packages(ctx, remote, pkgs, pkg_version, config):
     # assuming we are going to downgrade packages with the same version
     first_pkg = downgrade_pkgs[0]
     installed_version = packaging.get_package_version(remote, first_pkg)
-    assert installed_version, "failed to get version of {}".format(first_pkg)
+    assert installed_version, f"failed to get version of {first_pkg}"
     assert LooseVersion(installed_version) > LooseVersion(pkg_version)
     # to compose package name like "librados2-0.94.10-87.g116a558.el7"
     pkgs_opt = ['-'.join([pkg, pkg_version]) for pkg in downgrade_pkgs]
-    remote.run(args='sudo yum -y downgrade {}'.format(' '.join(pkgs_opt)))
+    remote.run(args=f"sudo yum -y downgrade {' '.join(pkgs_opt)}")
     return [pkg for pkg in pkgs if pkg not in downgrade_pkgs]
 
 def _retry_if_failures_are_recoverable(remote, args):
@@ -184,19 +183,19 @@ def _update_package_list_and_install(ctx, remote, rpm, config):
     remote_os = remote.os
 
     dist_release = remote_os.name
-    log.debug("_update_package_list_and_install: config is {}".format(config))
+    log.debug(f"_update_package_list_and_install: config is {config}")
     repos = config.get('repos')
     install_ceph_packages = config.get('install_ceph_packages')
     repos_only = config.get('repos_only')
 
     if repos:
-        log.debug("Adding repos: %s" % repos)
-        if dist_release in ['opensuse', 'sle']:
-            _zypper_wipe_all_repos(remote)
-            _zypper_addrepo(remote, repos)
-        else:
-            raise Exception('Custom repos were specified for %s ' % remote_os +
-                            'but these are currently not supported')
+        log.debug(f"Adding repos: {repos}")
+        if dist_release not in ['opensuse', 'sle']:
+            raise Exception(
+                f'Custom repos were specified for {remote_os} but these are currently not supported'
+            )
+        _zypper_wipe_all_repos(remote)
+        _zypper_addrepo(remote, repos)
     else:
         builder = _get_builder_project(ctx, remote, config)
         log.info('Pulling from %s', builder.base_url)
@@ -287,7 +286,7 @@ def _yum_fix_repo_priority(remote, project, uri):
     :param remote: the teuthology.orchestra.remote.Remote object
     :param project: the project whose repos need modification
     """
-    repo_path = '/etc/yum.repos.d/%s.repo' % project
+    repo_path = f'/etc/yum.repos.d/{project}.repo'
     remote.run(
         args=[
             'if', 'test', '-f', repo_path, run.Raw(';'), 'then',
@@ -312,7 +311,7 @@ def _yum_fix_repo_host(remote, project):
     new_host = teuth_config.gitbuilder_host
     if new_host == old_host:
         return
-    repo_path = '/etc/yum.repos.d/%s.repo' % project
+    repo_path = f'/etc/yum.repos.d/{project}.repo'
     host_sed_expr = "'s/{0}/{1}/'".format(old_host, new_host)
     remote.run(
         args=[
@@ -330,7 +329,7 @@ def _yum_set_check_obsoletes(remote):
     restore later.
     """
     conf_path = '/etc/yum/pluginconf.d/priorities.conf'
-    conf_path_orig = conf_path + '.orig'
+    conf_path_orig = f'{conf_path}.orig'
     cmd = [
         'sudo', 'touch', '-a', '/etc/yum/pluginconf.d/priorities.conf', run.Raw(';'),
         'test', '-e', conf_path_orig, run.Raw('||'), 'sudo', 'cp', '-af',
@@ -351,7 +350,7 @@ def _yum_unset_check_obsoletes(remote):
     Restore the /etc/yum/pluginconf.d/priorities.conf backup
     """
     conf_path = '/etc/yum/pluginconf.d/priorities.conf'
-    conf_path_orig = conf_path + '.orig'
+    conf_path_orig = f'{conf_path}.orig'
     remote.run(args=['sudo', 'mv', '-f', conf_path_orig, conf_path],
                check_status=False)
 

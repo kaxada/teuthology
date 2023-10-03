@@ -112,16 +112,15 @@ class safe_while(object):
             )
         )
         msg = 'reached maximum tries ({tries})' + \
-            ' after waiting for {total} seconds'
+                ' after waiting for {total} seconds'
         if self.action:
             msg = "'{action}' " + msg
 
-        msg = msg.format(
+        return msg.format(
             action=self.action,
             tries=self.tries,
             total=total_seconds_waiting,
         )
-        return msg
 
     def __call__(self):
         self.counter += 1
@@ -131,9 +130,8 @@ class safe_while(object):
             error_msg = self._make_error_msg()
             if self._raise:
                 raise MaxWhileTries(error_msg)
-            else:
-                log.warning(error_msg)
-                return False
+            log.warning(error_msg)
+            return False
         self.sleeper(self.sleep_current)
         self.sleep_current += self.increment
         return True

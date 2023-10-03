@@ -100,10 +100,7 @@ class OS(object):
         for (version, _codename) in DISTRO_CODENAME_MAP[name].items():
             if codename == _codename:
                 return version
-        raise RuntimeError("No version found for %s %s !" % (
-            name,
-            codename,
-        ))
+        raise RuntimeError(f"No version found for {name} {codename} !")
 
     @classmethod
     def from_lsb_release(cls, lsb_release_str):
@@ -135,9 +132,7 @@ class OS(object):
 
         version = cls._get_value(str_, 'Release')
         codename = cls._get_value(str_, 'Codename').lower()
-        obj = cls(name=name, version=version, codename=codename)
-
-        return obj
+        return cls(name=name, version=version, codename=codename)
 
     @classmethod
     def from_os_release(cls, os_release_str):
@@ -163,14 +158,10 @@ class OS(object):
         name = cls._get_value(str_, 'ID').lower()
         if name == 'sles':
             name = 'sle'
-        elif name == 'opensuse-leap':
-            name = 'opensuse'
-        elif name == 'opensuse-tumbleweed':
+        elif name in ['opensuse-leap', 'opensuse-tumbleweed']:
             name = 'opensuse'
         version = cls._get_value(str_, 'VERSION_ID')
-        obj = cls(name=name, version=version)
-
-        return obj
+        return cls(name=name, version=version)
 
 
     @classmethod
@@ -197,16 +188,14 @@ class OS(object):
         elif codename:
             version = version_or_codename
         else:
-            raise KeyError('%s not a %s version or codename' %
-                           (version_or_codename, name))
+            raise KeyError(f'{version_or_codename} not a {name} version or codename')
         return version, codename
 
 
     @staticmethod
     def _get_value(str_, name):
-        regex = '^%s[:=](.+)' % name
-        match = re.search(regex, str_, flags=re.M)
-        if match:
+        regex = f'^{name}[:=](.+)'
+        if match := re.search(regex, str_, flags=re.M):
             return match.groups()[0].strip(' \t"\'')
         return ''
 
@@ -233,7 +222,6 @@ class OS(object):
                     codename=repr(self.codename))
 
     def __eq__(self, other):
-        for slot in self.__slots__:
-            if not getattr(self, slot) == getattr(other, slot):
-                return False
-        return True
+        return all(
+            getattr(self, slot) == getattr(other, slot) for slot in self.__slots__
+        )

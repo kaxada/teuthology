@@ -152,11 +152,9 @@ def add_remotes(ctx, config):
         machs.append(name)
     for t, key in ctx.config['targets'].items():
         t = misc.canonicalize_hostname(t)
-        try:
+        with contextlib.suppress(AttributeError, KeyError):
             if ctx.config['sshkeys'] == 'ignore':
                 key = None
-        except (AttributeError, KeyError):
-            pass
         rem = remote.Remote(name=t, host_key=key, keep_alive=True)
         remotes.append(rem)
     if 'roles' in ctx.config:
@@ -164,7 +162,7 @@ def add_remotes(ctx, config):
             assert all(isinstance(role, str) for role in roles), \
                 "Roles in config must be strings: %r" % roles
             ctx.cluster.add(rem, roles)
-            log.info('roles: %s - %s' % (rem, roles))
+            log.info(f'roles: {rem} - {roles}')
     else:
         for rem in remotes:
             ctx.cluster.add(rem, rem.name)
@@ -210,19 +208,17 @@ def buildpackages_prep(ctx, config):
     BUILDPACKAGES_FIRST if a buildpackages task was moved at the beginning
     BUILDPACKAGES_OK if a buildpackages task already at the beginning
     """
-    index = 0
     install_index = None
     buildpackages_index = None
     buildpackages_prep_index = None
-    for task in ctx.config['tasks']:
+    for index, task in enumerate(ctx.config['tasks']):
         t = list(task)[0]
-        if t == 'install':
-            install_index = index
         if t == 'buildpackages':
             buildpackages_index = index
-        if t == 'internal.buildpackages_prep':
+        elif t == 'install':
+            install_index = index
+        elif t == 'internal.buildpackages_prep':
             buildpackages_prep_index = index
-        index += 1
     if (buildpackages_index is not None and
         install_index is not None):
         if buildpackages_index > buildpackages_prep_index + 1:
@@ -234,13 +230,12 @@ def buildpackages_prep(ctx, config):
         else:
             log.info('buildpackages is already the first task')
             return BUILDPACKAGES_OK
-    elif buildpackages_index is not None and install_index is None:
+    elif buildpackages_index is not None:
         ctx.config['tasks'].pop(buildpackages_index)
         all_tasks = [list(x.keys())[0] for x in ctx.config['tasks']]
-        log.info('buildpackages removed because no install task found in ' +
-                 str(all_tasks))
+        log.info(f'buildpackages removed because no install task found in {all_tasks}')
         return BUILDPACKAGES_REMOVED
-    elif buildpackages_index is None:
+    else:
         log.info('no buildpackages task found')
         return BUILDPACKAGES_NOTHING
 
@@ -344,7 +339,7 @@ def fetch_binaries_for_coredumps(path, remote):
 
 def gzip_if_too_large(compress_min_size, src, tarinfo, local_path):
     if tarinfo.size >= compress_min_size:
-        with gzip.open(local_path + '.gz', 'wb') as dest:
+        with gzip.open(f'{local_path}.gz', 'wb') as dest:
             shutil.copyfileobj(src, dest)
     else:
         misc.copy_fileobj(src, tarinfo, local_path)
@@ -389,7 +384,7 @@ def archive(ctx, config):
                     compress_min_size_bytes = \
                         humanfriendly.parse_size(min_size_option)
                 except humanfriendly.InvalidSize:
-                    msg = 'invalid "log-compress-min-size": {}'.format(min_size_option)
+                    msg = f'invalid "log-compress-min-size": {min_size_option}'
                     log.error(msg)
                     raise ConfigError(msg)
                 maybe_compress = functools.partial(gzip_if_too_large,
@@ -453,11 +448,11 @@ def coredump(ctx, config):
                 '{adir}/coredump'.format(adir=archive_dir),
                 run.Raw('&&'),
                 'sudo', 'sysctl', '-w', 'kernel.core_pattern={adir}/coredump/%t.%p.core'.format(adir=archive_dir),
-		run.Raw('&&'),
-		'echo',
-		'kernel.core_pattern={adir}/coredump/%t.%p.core'.format(adir=archive_dir),
-		run.Raw('|'),
-		'sudo', 'tee', '-a', '/etc/sysctl.conf',
+    run.Raw('&&'),
+    'echo',
+    'kernel.core_pattern={adir}/coredump/%t.%p.core'.format(adir=archive_dir),
+    run.Raw('|'),
+    'sudo', 'tee', '-a', '/etc/sysctl.conf',
             ],
             wait=False,
         )
@@ -491,7 +486,7 @@ def coredump(ctx, config):
         # seen
         for rem in cluster.remotes.keys():
             try:
-                rem.sh("test -e " + archive_dir + "/coredump")
+                rem.sh(f"test -e {archive_dir}/coredump")
             except run.CommandFailedError:
                 continue
             log.warning('Found coredumps on %s, flagging run as failed', rem)
@@ -513,15 +508,12 @@ def archive_upload(ctx, config):
         archive_path = ctx.config.get('archive_path')
         if upload and archive_path:
             log.info('Uploading archives ...')
-            upload_key = ctx.config.get('archive_upload_key')
-            if upload_key:
-                ssh = "RSYNC_RSH='ssh -i " + upload_key + "'"
+            if upload_key := ctx.config.get('archive_upload_key'):
+                ssh = f"RSYNC_RSH='ssh -i {upload_key}'"
             else:
                 ssh = ''
             split_path = archive_path.split('/')
             split_path.insert(-2, '.')
-            misc.sh(ssh + " rsync -avz --relative /" +
-                    os.path.join(*split_path) + " " +
-                    upload)
+            misc.sh(f"{ssh} rsync -avz --relative /{os.path.join(*split_path)} {upload}")
         else:
             log.info('Not uploading archives.')
